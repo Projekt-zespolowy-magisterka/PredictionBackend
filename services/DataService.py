@@ -5,9 +5,12 @@ from repositories.RedisModelCacheRepository import RedisModelCacheRepository
 from utilities.dataReader import DataReader
 from utilities.dataAnalyser import DataAnalyzer
 from utilities.dataScaler import DataScaler
+from utilities.statisticsCalculator import calculate_hurst_series
 import yfinance as yf
 import pandas as pd
 import os
+from flask import jsonify
+import logging
 
 
 class DataService:
@@ -21,7 +24,7 @@ class DataService:
         self.download_data = self.data_reader.get_download_data()
         self.upload_data = self.data_reader.get_upload_data()
 
-    def get_stock_data(self, stock_symbol, interval, period):
+    def get_stock_data_from_API(self, stock_symbol, interval, period):
         print("Starting data download")
         data = yf.download(stock_symbol, period=period, interval=interval, actions=True, prepost=True, threads=True)
         self.file_repository.save_to_parquet(data, stock_symbol, interval, period)
@@ -166,7 +169,68 @@ class DataService:
         self.data_analyzer.get_data_info()
 
     def get_parquet_data(self, stock_symbol, interval, period):
-        self.file_repository.load_parquet()
+        return self.file_repository.load_parquet(stock_symbol, interval, period)
 
     def get_csv_data(self, stock_symbol, interval, period):
-        self.file_repository.load_csv(stock_symbol, interval, period)
+        return self.file_repository.load_csv(stock_symbol, interval, period)
+
+    def process_data(self, data):
+        print("[process_data] Processing of data started")
+        # print(data)
+        print("[process_data] Data columns:", data.columns)
+        try:
+            data['Return'] = data['Close'].pct_change()
+            data.dropna(inplace=True)
+            data['Year'] = data.index.year
+            data['Month'] = data.index.month
+            data['Day'] = data.index.day
+            data['DayOfWeek'] = data.index.dayofweek
+            data['IsWeekend'] = (data.index.dayofweek >= 5).astype(int)
+
+            # data['Hurst'] = calculate_hurst_series(data['Close'])
+            logging.error("Hurst finished")
+            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Year', 'Month', 'Day', 'DayOfWeek',
+                                 'IsWeekend'
+                # , 'Hurst'
+                                 ]
+            for feature in required_features:
+                if feature not in data.columns:
+                    error_message = f"Feature '{feature}' not found in data"
+                    logging.error(error_message)
+                    return jsonify({'error': error_message}), 400
+
+            features = data[required_features]
+            features = features.apply(pd.to_numeric, errors='coerce')
+            print("[process_data] Feature data types:")
+            print(features.dtypes)
+
+            # target = data['Close']
+
+            target = data[['Open', 'High', 'Low', 'Close']]
+
+            # print("[process_data] FEATURES: ")
+            # print(features)
+            #
+            # print("[process_data] TARGET: ")
+            # print(target)
+            target = target.dropna()
+
+            # print("[process_data] NO NO NAN TARGET: ")
+            # print(target)
+
+            if len(features) != len(target):
+                error_message = "Mismatch between features and target lengths after dropping NaNs"
+                logging.error(error_message)
+                return jsonify({'error': error_message}), 400
+
+            print("[process_data] Processing finished")
+            X = features
+            y = target
+            return X, y
+        except Exception as e:
+            print(jsonify({'error': str(e)}), 500)
+            raise Exception(f"[process_data] Error: {e}")
+
+
+
+

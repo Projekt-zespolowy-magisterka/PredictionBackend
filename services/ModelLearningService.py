@@ -4,8 +4,9 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.model_selection import TimeSeriesSplit
 import numpy as np
-from utilities.statisticsCalculator import calculate_r_squared, pair_test
+from utilities.statisticsCalculator import calculate_r_squared
 from repositories.FileModelRepository import FileModelRepository
 from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
@@ -13,14 +14,23 @@ from repositories.RedisModelCacheRepository import RedisModelCacheRepository
 from utilities.dataReader import DataReader
 from utilities.dataAnalyser import DataAnalyzer
 from utilities.dataScaler import DataScaler
+from services.DataService import DataService
+import pandas as pd
+import time
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, LSTM, Dense, Dropout
+from tensorflow.python.client import device_lib
 
 AVAILABLE_MODELS_NAMES = [
-    "LinearRegression"
-    , "DecisionTreeRegressor"
-    , "Ridge"
+    "LinearRegression",
+    # , "DecisionTreeRegressor"
+    # , "Ridge"
     # ,"MLPRegressor"
-    # ,"RandomForestRegressor"
+    "RandomForestRegressor",
+    "LSTM"
 ]
+
+data_service = DataService()
 
 
 class ModelLearningService:
@@ -34,11 +44,12 @@ class ModelLearningService:
         self.download_data = self.data_reader.get_download_data()
         self.upload_data = self.data_reader.get_upload_data()
         self.models = [
-            LinearRegression()
-            , DecisionTreeRegressor()
-            , Ridge()
-            # ,MLPRegressor()
-            # ,RandomForestRegressor()
+            LinearRegression(),
+            # DecisionTreeRegressor(),
+            # Ridge(),
+            # MLPRegressor(),
+            RandomForestRegressor(),
+            Sequential()
         ]
         self.metrics_array = [
             mean_squared_error,
@@ -47,38 +58,57 @@ class ModelLearningService:
         ]
         self.models_names = AVAILABLE_MODELS_NAMES
 
-    def learn_models(self):
+    def learn_models(self, stock_symbol, interval, period):
         print()
+        data_for_train = data_service.get_parquet_data(stock_symbol, interval, period)
+        X, y = data_service.process_data(data_for_train)
+        X_scaled, Y_scaled = self.data_scaler.scale_data(X, y)
 
-    def learn_models_test(self):
-        print()
-        print("Starting learning process \n")
-        all_data = [
-            self.download_data,
-            self.upload_data
-        ]
+        # num_folds = 5
+        # num_repeats = 3
+        # rkf = RepeatedKFold(n_splits=num_folds, n_repeats=num_repeats, random_state=42)
 
-        all_data_names = [
-            "Download",
-            "Upload"
-        ]
+        n_splits = 5
+        tscv = TimeSeriesSplit(n_splits=n_splits)
 
-        num_folds = 5
-        num_repeats = 3
-        rkf = RepeatedKFold(n_splits=num_folds, n_repeats=num_repeats, random_state=42)
         learned_models = {}
-        for data_type_index, data_type in enumerate(all_data):
-            current_data_type = all_data[data_type_index]
-            for company_data_index, company_data in enumerate(current_data_type):
-                X, y = DataReader.process_data(company_data, all_data_names[data_type_index])
-                X_scaled, Y_scaled = self.data_scaler.scale_data(X, y)
-                for model_index, model in enumerate(self.models):
-                    current_model_name_key = self.models_names[model_index]
-                    for train_index, test_index in rkf.split(X_scaled, y):
-                        X_train, X_test = X_scaled[train_index], X_scaled[test_index]
-                        y_train, y_test = y[train_index], y[test_index]
-                        learned_models[current_model_name_key] = model.fit(X_train, y_train)
-                self.save_models(learned_models)
+        print("[learn_models] Learning data set preparing to learn models")
+        for model_index, model in enumerate(self.models):
+            current_model_name_key = self.models_names[model_index]
+            print(f"[learn_models] Starting learning process of model: {current_model_name_key}\n")
+            start_time = time.time()
+            if isinstance(model, Sequential):
+                lstm_model = self.create_lstm_model(model)
+                for train_index, test_index in tscv.split(X_scaled, y):
+                    X_train, X_test = X_scaled[train_index], X_scaled[test_index]
+                    y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+                    X_train_reshaped = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
+                    X_test_reshaped = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
+
+                    y_train_reshaped = y_train.values.reshape((y_train.shape[0], 1, y_train.shape[1]))
+                    y_test_reshaped = y_test.values.reshape((y_test.shape[0], 1, y_test.shape[1]))
+
+                    # print("[learn_models] X train reshaped")
+                    # print(X_train_reshaped)
+                    # print("[learn_models] X train shape")
+                    # print(X_train_reshaped.shape)
+
+                    lstm_model.fit(X_train_reshaped, y_train_reshaped, epochs=50, batch_size=32, verbose=2)
+                    learned_models[current_model_name_key] = lstm_model
+
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print(f"[learn_models] Finished learning process of model: {current_model_name_key} in: {elapsed_time}\n")
+            else:
+                for train_index, test_index in tscv.split(X_scaled, y):
+                    X_train, X_test = X_scaled[train_index], X_scaled[test_index]
+                    y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+                    learned_models[current_model_name_key] = model.fit(X_train, y_train)
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print(f"[learn_models] Finished learning process of model: {current_model_name_key} in: {elapsed_time}\n")
+        self.save_models(learned_models)
 
     def save_model(self, model, model_key):
         self.mongo_repo.save_model(model, model_key)
@@ -88,3 +118,30 @@ class ModelLearningService:
         for model_key, model in learned_models.items():
             self.mongo_repo.save_model(model, model_key)
             self.redis_cache.cache_model(model, model_key)
+
+    def create_lstm_model(self, model):
+        print(f"Creating lstm")
+        print(f"Creating first layer of lstm")
+        model.add(LSTM(units=50, return_sequences=True, input_shape=(1, 10), name="lstm_layer_1"))
+        model.add(Dropout(0.2, name="dropout_1"))
+
+        print(f"Creating second layer of lstm")
+        model.add(LSTM(units=50, return_sequences=True, name="lstm_layer_2"))
+        model.add(Dropout(0.2, name="dropout_2"))
+
+        print(f"Creating third layer of lstm")
+        model.add(LSTM(units=50, return_sequences=True, name="lstm_layer_3"))
+        model.add(Dropout(0.2, name="dropout_3"))
+
+        print(f"Creating fourth layer of lstm")
+        model.add(LSTM(units=50, name="lstm_layer_4"))
+        model.add(Dropout(0.2, name="dropout_4"))
+
+        print(f"Creating output layer of lstm")
+        model.add(Dense(units=1, name="output_layer"))
+
+        model.add(Dense(1))
+        print(f"input finished")
+        model.compile(optimizer='adam', loss='mse')
+        print(f"compile finished")
+        return model

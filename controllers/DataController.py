@@ -4,22 +4,12 @@ from services.DataService import DataService
 data_controller_blueprint = Blueprint('data_controller', __name__)
 data_service = DataService()
 
-# indices = {
-#     "NASDAQ": "^IXIC",
-#     "DAX30": "^GDAXI",
-#     "WIG20": "^WIG20"
-# }
-
-# http://127.0.0.1:5000/data/^IXIC?period=10y&interval=1d
-# http://127.0.0.1:5000/data/AAPL?period=2y&interval=1h
-# http://127.0.0.1:5000/data/AAPL?start=2014-01-01&end=2015-01-01&interval=1h
-
 
 @data_controller_blueprint.route('/data/<string:stock_symbol>', methods=['GET'])
 def get_stock_data(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)
-        data_service.get_stock_data(stock_symbol, interval, period)
+        data_service.get_stock_data_from_API(stock_symbol, interval, period)
         return jsonify({'status': 'success', 'message': 'Stock data got successfully'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -36,7 +26,7 @@ def convert_stock_parquet_to_csv(stock_symbol):
 
 
 @data_controller_blueprint.route('/data/ticker/<string:stock_symbol>', methods=['GET'])
-def ticker(stock_symbol):
+def get_stock_ticker_info(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)
         data_service.get_stock_ticker_data(stock_symbol, interval, period)

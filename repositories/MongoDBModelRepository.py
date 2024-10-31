@@ -1,22 +1,45 @@
 from pymongo import MongoClient
 import pickle
+from gridfs import GridFS
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 
 class MongoDBModelRepository:
     def __init__(self, uri="mongodb://localhost:27017", db_name="model_db", collection_name="models"):
         self.client = MongoClient(uri)
-        self.collection = self.client[db_name][collection_name]
+        self.db = self.client[db_name]
+        self.collection = self.db[collection_name]
+        self.fs = GridFS(self.db)
 
     def save_model(self, model, model_key):
-        model_data = pickle.dumps(model)
-        self.collection.replace_one(
-            {"_id": model_key},
-            {"_id": model_key, "model_data": model_data}
-            , upsert=True)
+        try:
+            model_data = pickle.dumps(model)
+
+            existing = self.collection.find_one({"_id": model_key})
+            if existing:
+                print("Model is existing")
+                self.fs.delete(existing["model_file_id"])
+                print("Model deleted")
+
+            model_file_id = self.fs.put(model_data)
+            print(f"Model file id: {model_file_id}")
+            self.collection.replace_one(
+                {"_id": model_key},
+                {"_id": model_key, "model_file_id": model_file_id},
+                upsert=True
+            )
+            print(f"Model {model_key} saved")
+        except Exception as e:
+            logger.error(f"Error saving model with key '{model_key}': string error: {str(e)},  error: {e}")
 
     def load_model(self, model_key):
-        record = self.collection.find_one({"_id": model_key})
-        if record:
-            return pickle.loads(record["model_data"])
-        else:
-            return None
+        doc = self.collection.find_one({"_id": model_key})
+        if doc:
+            model_data = self.fs.get(doc["model_file_id"]).read()
+            print(f"Model {model_data} loaded")
+            return pickle.loads(model_data)
+        print(f"Model {model_key} not found")
+        return None

@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.stats import ttest_rel
 from tabulate import tabulate
+from hurst import compute_Hc
+import pandas as pd
 
 
 def calculate_r_squared(y_test, y_pred):
@@ -11,42 +13,29 @@ def calculate_r_squared(y_test, y_pred):
     return rsquared
 
 
-def pair_test(all_scores_table, models_names, metrics_names):
-    n_experiment_objects = len(all_scores_table)
-    n_metrics = len(metrics_names)
+def calculate_hurst_series(close_data):
+    hurst_values = []
+    print(f"Calculating hurst series for close_data: \n {close_data.head()}")
+    print(f"Data size: {len(close_data)}")
+    for i in range(len(close_data)):
+        if i == 0:
+            hurst_values.append(0.5)
+        else:
+            print(f"Slicing")
+            closing_prices_slice = close_data.iloc[:i+1].values
+            print(f"Closing price slices: \n {closing_prices_slice}")
+            hurst = calculate_hurst(closing_prices_slice)
+            print(f"Hurst value: {hurst}")
+            hurst_values.append(hurst)
+    print(f"Hurst values: \n {hurst_values}")
+    return hurst_values
 
-    t_student_matrix = np.zeros((n_experiment_objects, n_experiment_objects))
-    p_matrix = np.zeros((n_experiment_objects, n_experiment_objects))
-    better_metrics_matrix = np.zeros((n_experiment_objects, n_experiment_objects), dtype=bool)
-    statistics_matters_matrix = np.zeros((n_experiment_objects, n_experiment_objects), dtype=bool)
-    alpha = 0.05
 
-    for metric_index in range(n_metrics):
-        print(f"\n Test for metric: {metrics_names[metric_index]}")
-        for i in range(n_experiment_objects):
-            for j in range(n_experiment_objects):
-                first_scores_table = all_scores_table[i, metric_index, :]
-                # print (f" First scores table: {first_scores_table}")
-                second_scores_table = all_scores_table[j, metric_index, :]
-                # print(f" Second scores table: {second_scores_table}")
-                stat, p_value = ttest_rel(first_scores_table, second_scores_table)
+def calculate_hurst(closing_prices):
+    print(f"DATA: {closing_prices}")
+    if len(closing_prices) == 1:
+        return 0.5
 
-                t_student_matrix[i, j] = stat
-                p_matrix[i, j] = p_value
-
-                better_metrics_matrix[i, j] = np.mean(first_scores_table) > np.mean(second_scores_table)
-                better_metrics_matrix[j, i] = np.mean(first_scores_table) <= np.mean(second_scores_table)
-                statistics_matters_matrix[i, j] = p_value < alpha
-
-        advantage_matter_stat_matrix = better_metrics_matrix * statistics_matters_matrix
-        print("\n T-student matrix")
-        print(tabulate(t_student_matrix, headers=models_names, showindex=models_names, tablefmt="grid"))
-        print("\n P matrix")
-        print(tabulate(p_matrix, headers=models_names, showindex=models_names, tablefmt="grid"))
-        print("\n Better matrix")
-        print(tabulate(better_metrics_matrix, headers=models_names, showindex=models_names, tablefmt="grid"))
-        print("\n Stat matter matrix")
-        print(tabulate(statistics_matters_matrix, headers=models_names, showindex=models_names, tablefmt="grid"))
-        print("\n Adv matter matrix")
-        print(tabulate(advantage_matter_stat_matrix, headers=models_names, showindex=models_names, tablefmt="grid"))
-        print("\n")
+    H, c, data_series = compute_Hc(closing_prices, kind='price', simplified=True)
+    print(f"Hurst exponent: {H}, c: {c}, time series: {data_series}")
+    return H

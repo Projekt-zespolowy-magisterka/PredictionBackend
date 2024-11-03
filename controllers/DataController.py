@@ -15,7 +15,7 @@ def get_stock_data(stock_symbol):
         return jsonify({'error': str(e)}), 500
 
 
-@data_controller_blueprint.route('/data/convert/<string:stock_symbol>', methods=['POST'])
+@data_controller_blueprint.route('/data/convert/<string:stock_symbol>', methods=['GET'])
 def convert_stock_parquet_to_csv(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)

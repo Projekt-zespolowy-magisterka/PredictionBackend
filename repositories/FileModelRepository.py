@@ -20,7 +20,7 @@ class FileModelRepository:
         stock_dir = self.get_stock_dir(stock_symbol)
         file_path = os.path.join(stock_dir,
                                  self.generate_filename(stock_symbol, interval, period, self.CSV_FILE_EXTENSION))
-        data.to_csv(file_path)
+        data.to_csv(file_path, index=True)
         print(f"Data saved to CSV at {file_path}")
 
     def save_to_parquet(self, data, stock_symbol, interval, period):

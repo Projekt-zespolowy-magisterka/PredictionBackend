@@ -12,7 +12,6 @@ import os
 from flask import jsonify
 import logging
 
-
 class DataService:
     def __init__(self):
         self.file_repository = FileModelRepository()
@@ -27,21 +26,23 @@ class DataService:
     def get_stock_data_from_API(self, stock_symbol, interval, period):
         print("Starting data download")
         data = yf.download(stock_symbol, period=period, interval=interval, actions=True, prepost=True, threads=True)
-        self.file_repository.save_to_parquet(data, stock_symbol, interval, period)
+        old_data = yf.download(stock_symbol, period='5y', interval='1d', actions=True, prepost=True, threads=True)
+
         print(data.head())
+        processed_data = self.process_data(data, old_data)
+        self.file_repository.save_to_parquet(processed_data, stock_symbol, interval, period)
         print("Finished data download")
 
     def get_stock_ticker_data(self, stock_symbol, interval, period):
-        # Define the stock symbol
-        # stock_symbol = 'AAPL'  # Example: Apple Inc.
+
         ticker = yf.Ticker(stock_symbol)
         print("Ticker: \n")
         print(ticker)
-        # List all available attributes and methods of the Ticker object
+
         print("\n \nTicker attributes\n")
         ticker_attributes = dir(ticker)
         print(ticker_attributes)
-        # Fetch data
+
         # 1. Basic Information
         basic_info = ticker.info
 
@@ -98,7 +99,6 @@ class DataService:
 
         quarterly_earnings = ticker.quarterly_earnings
 
-        # Print retrieved data
         print("Basic Info:", basic_info)
         print("Historical Data:", historical_data.head())
         print("Financials:", financials)
@@ -156,13 +156,17 @@ class DataService:
             splits.to_csv(os.path.join(folder_path, f"{stock_symbol}_splits.csv"))
             print(f"Splits data saved to {stock_symbol}_splits.csv")
 
-        # Saving current quote to a single-row DataFrame and CSV
-        # pd.DataFrame([current_quote]).to_csv(f"{stock_symbol}_current_quote.csv")
-        # print(f"Current quote data saved to {stock_symbol}_current_quote.csv")
     def convert_parquet_to_csv(self, stock_symbol, interval, period):
         print("Started converting data")
         parquet_data = self.file_repository.load_parquet(stock_symbol, interval, period)
         self.file_repository.save_to_csv(parquet_data, stock_symbol, interval, period)
+        print("Finished converting data")
+
+    # TODO CHANGE THIS (less values)
+    def save_to_csv(self, data, stock_symbol, interval, period):
+        print("Started converting data")
+        pred_stock_name = stock_symbol + "_PRED"
+        self.file_repository.save_to_csv(data, pred_stock_name, interval, period)
         print("Finished converting data")
 
     def analyze_data(self):
@@ -174,63 +178,57 @@ class DataService:
     def get_csv_data(self, stock_symbol, interval, period):
         return self.file_repository.load_csv(stock_symbol, interval, period)
 
-    def process_data(self, data):
+    def process_data(self, data, old_data):
         print("[process_data] Processing of data started")
-        # print(data)
         print("[process_data] Data columns:", data.columns)
         try:
+            data.drop(columns=['Adj Close', 'Dividends', 'Stock Splits'], inplace=True)
             data['Return'] = data['Close'].pct_change()
             data.dropna(inplace=True)
-            data['Year'] = data.index.year
-            data['Month'] = data.index.month
             data['Day'] = data.index.day
+            data['Month'] = data.index.month
+            data['Year'] = data.index.year
+            data['Hour'] = data.index.hour
             data['DayOfWeek'] = data.index.dayofweek
             data['IsWeekend'] = (data.index.dayofweek >= 5).astype(int)
 
             # data['Hurst'] = calculate_hurst_series(data['Close'])
             logging.error("Hurst finished")
-            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Year', 'Month', 'Day', 'DayOfWeek',
+            return data
+        except Exception as e:
+            print(jsonify({'error': str(e)}), 500)
+            raise Exception(f"[process_data] Error: {e}")
+
+    # TODO ADD MINUTES
+    def get_objectives_from_data(self, processed_data):
+        try:
+            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
                                  'IsWeekend'
-                # , 'Hurst'
+                                 # , 'Hurst'
                                  ]
             for feature in required_features:
-                if feature not in data.columns:
+                if feature not in processed_data.columns:
                     error_message = f"Feature '{feature}' not found in data"
                     logging.error(error_message)
                     return jsonify({'error': error_message}), 400
 
-            features = data[required_features]
+            features = processed_data[required_features]
             features = features.apply(pd.to_numeric, errors='coerce')
-            print("[process_data] Feature data types:")
+            print("[get_objectives_from_data] Feature data types:")
             print(features.dtypes)
 
-            # target = data['Close']
-
-            target = data[['Open', 'High', 'Low', 'Close']]
-
-            # print("[process_data] FEATURES: ")
-            # print(features)
-            #
-            # print("[process_data] TARGET: ")
-            # print(target)
+            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
             target = target.dropna()
-
-            # print("[process_data] NO NO NAN TARGET: ")
-            # print(target)
 
             if len(features) != len(target):
                 error_message = "Mismatch between features and target lengths after dropping NaNs"
                 logging.error(error_message)
                 return jsonify({'error': error_message}), 400
 
-            print("[process_data] Processing finished")
-            X = features
-            y = target
+            print("[get_objectives_from_data] Getting objectives from data finished")
+            X = features.copy()
+            y = target.copy()
             return X, y
         except Exception as e:
             print(jsonify({'error': str(e)}), 500)
-            raise Exception(f"[process_data] Error: {e}")
-
-
-
-
+            raise Exception(f"[get_objectives_from_data] Error: {e}")

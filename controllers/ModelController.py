@@ -21,7 +21,7 @@ def get_prediction(stock_symbol):
 @prediction_controller_blueprint.route('/learn/<string:stock_symbol>', methods=['GET'])
 def learn_models(stock_symbol):
     try:
-        interval, period = validate_request(stock_symbol)
+        interval, period, days_ahead = validate_request(stock_symbol)
         model_learn_service.learn_models(stock_symbol, interval, period)
         return jsonify({'status': 'success', 'message': 'Models trained successfully'})
     except Exception as e:

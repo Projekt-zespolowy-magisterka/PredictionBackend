@@ -2,6 +2,7 @@ from pymongo import MongoClient
 import pickle
 from gridfs import GridFS
 import logging
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -28,7 +29,11 @@ class MongoDBModelRepository:
             print(f"Model file id: {model_file_id}")
             self.collection.replace_one(
                 {"_id": model_key},
-                {"_id": model_key, "model_file_id": model_file_id},
+                {
+                    "_id": model_key,
+                    "model_file_id": model_file_id,
+                    "created_at": datetime.utcnow()
+                },
                 upsert=True
             )
             print(f"Model {model_key} saved")

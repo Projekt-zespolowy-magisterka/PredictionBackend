@@ -1,5 +1,6 @@
 from sklearn.preprocessing import StandardScaler
 
+
 class DataScaler:
     def __init__(self):
         pass

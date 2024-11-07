@@ -11,11 +11,9 @@ from repositories.FileModelRepository import FileModelRepository
 from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
 from repositories.RedisModelCacheRepository import RedisModelCacheRepository
-from utilities.dataReader import DataReader
 from utilities.dataAnalyser import DataAnalyzer
 from utilities.dataScaler import DataScaler
 from services.DataService import DataService
-import pandas as pd
 import time
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, LSTM, GRU, Bidirectional, Dense, Dropout
@@ -30,17 +28,15 @@ AVAILABLE_MODELS_NAMES = [
 ]
 
 
+# TODO IMPLEMENT MODEL EFFICIENCY TESTS
 class ModelLearningService:
     def __init__(self):
         self.model_repository = FileModelRepository()
         self.mongo_repo = MongoDBModelRepository()
         self.redis_cache = RedisModelCacheRepository()
         self.data_service = DataService()
-        self.data_reader = DataReader()
         self.data_analyzer = DataAnalyzer()
         self.data_scaler = DataScaler()
-        self.download_data = self.data_reader.get_download_data()
-        self.upload_data = self.data_reader.get_upload_data()
         self.models = [
             DecisionTreeRegressor(),
             RandomForestRegressor(),
@@ -59,7 +55,7 @@ class ModelLearningService:
         data_for_train = self.data_service.get_parquet_data(stock_symbol, interval, period)
         X, y = self.data_service.get_objectives_from_data(data_for_train)
         X_scaled, Y_scaled = self.data_scaler.scale_data(X, y)
-
+        number_of_features = X.shape[1]
         n_splits = 5
         tscv = TimeSeriesSplit(n_splits=n_splits)
 
@@ -71,11 +67,11 @@ class ModelLearningService:
             start_time = time.time()
             if isinstance(model, Sequential):
                 if current_model_name_key == 'LSTM':
-                    seq_model = self.create_lstm_model(model)
+                    seq_model = self.create_lstm_model(model, number_of_features)
                 if current_model_name_key == 'GRU':
-                    seq_model = self.create_gru_model(model)
+                    seq_model = self.create_gru_model(model, number_of_features)
                 if current_model_name_key == 'Bi-Direct':
-                    seq_model = self.create_bi_lstm_model(model)
+                    seq_model = self.create_bi_lstm_model(model, number_of_features)
 
                 for train_index, test_index in tscv.split(X_scaled, y):
                     X_train, X_test = X_scaled[train_index], X_scaled[test_index]
@@ -111,10 +107,10 @@ class ModelLearningService:
             self.mongo_repo.save_model(model, model_key)
             self.redis_cache.cache_model(model, model_key)
 
-    def create_lstm_model(self, model):
+    def create_lstm_model(self, model, number_of_features):
         print(f"Creating lstm")
         print(f"Creating first layer of lstm")
-        model.add(LSTM(units=50, return_sequences=True, input_shape=(1, 12), name="lstm_layer_1"))
+        model.add(LSTM(units=50, return_sequences=True, input_shape=(1, number_of_features), name="lstm_layer_1"))
         model.add(Dropout(0.2, name="dropout_1"))
 
         print(f"Creating second layer of lstm")
@@ -138,8 +134,8 @@ class ModelLearningService:
         print(f"compile finished")
         return model
 
-    def create_gru_model(self, model):
-        model.add(GRU(units=50, return_sequences=True, input_shape=(1, 12), name="gru_layer_1"))
+    def create_gru_model(self, model, number_of_features):
+        model.add(GRU(units=50, return_sequences=True, input_shape=(1, number_of_features), name="gru_layer_1"))
         model.add(Dropout(0.2, name="dropout_1"))
 
         model.add(GRU(units=50, return_sequences=True, name="gru_layer_2"))
@@ -155,8 +151,8 @@ class ModelLearningService:
         model.compile(optimizer='adam', loss='mse')
         return model
 
-    def create_bi_lstm_model(self, model):
-        model.add(Bidirectional(LSTM(units=50, return_sequences=True), input_shape=(1, 12), name="bi_lstm_layer_1"))
+    def create_bi_lstm_model(self, model, number_of_features):
+        model.add(Bidirectional(LSTM(units=50, return_sequences=True), input_shape=(1, number_of_features), name="bi_lstm_layer_1"))
         model.add(Dropout(0.2, name="dropout_1"))
 
         model.add(Bidirectional(LSTM(units=50, return_sequences=True), name="bi_lstm_layer_2"))

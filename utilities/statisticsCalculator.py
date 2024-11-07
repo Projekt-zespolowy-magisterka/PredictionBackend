@@ -1,9 +1,6 @@
 import numpy as np
-from scipy.stats import ttest_rel
-from tabulate import tabulate
 from hurst import compute_Hc
 import pandas as pd
-
 
 def calculate_r_squared(y_test, y_pred):
     mean_y = np.mean(y_test)
@@ -12,30 +9,17 @@ def calculate_r_squared(y_test, y_pred):
     rsquared = 1 - (SSR / SST)
     return rsquared
 
-
-def calculate_hurst_series(close_data):
+def calculate_hurst_series(data_close, old_data_close):
     hurst_values = []
-    print(f"Calculating hurst series for close_data: \n {close_data.head()}")
-    print(f"Data size: {len(close_data)}")
-    for i in range(len(close_data)):
-        if i == 0:
-            hurst_values.append(0.5)
-        else:
-            print(f"Slicing")
-            closing_prices_slice = close_data.iloc[:i+1].values
-            print(f"Closing price slices: \n {closing_prices_slice}")
-            hurst = calculate_hurst(closing_prices_slice)
-            print(f"Hurst value: {hurst}")
-            hurst_values.append(hurst)
-    print(f"Hurst values: \n {hurst_values}")
-    return hurst_values
+    full_series = pd.concat([old_data_close, data_close])
+    total_points = len(full_series)
 
+    for i in range(len(old_data_close), total_points):
+        window = full_series.iloc[i - 99:i + 1]
+        H, c, _ = compute_Hc(window)
+        hurst_values.append(round(H, 3))
 
-def calculate_hurst(closing_prices):
-    print(f"DATA: {closing_prices}")
-    if len(closing_prices) == 1:
-        return 0.5
+    hurst_series = pd.Series(hurst_values, index=data_close.index)
+    print(f'Hurst series: {hurst_series}')
+    return hurst_series
 
-    H, c, data_series = compute_Hc(closing_prices, kind='price', simplified=True)
-    print(f"Hurst exponent: {H}, c: {c}, time series: {data_series}")
-    return H

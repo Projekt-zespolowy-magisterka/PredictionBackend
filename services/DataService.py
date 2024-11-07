@@ -2,7 +2,6 @@ from repositories.FileModelRepository import FileModelRepository
 from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
 from repositories.RedisModelCacheRepository import RedisModelCacheRepository
-from utilities.dataReader import DataReader
 from utilities.dataAnalyser import DataAnalyzer
 from utilities.dataScaler import DataScaler
 from utilities.statisticsCalculator import calculate_hurst_series
@@ -12,16 +11,14 @@ import os
 from flask import jsonify
 import logging
 
+
 class DataService:
     def __init__(self):
         self.file_repository = FileModelRepository()
         self.mongo_repo = MongoDBModelRepository()
         self.redis_cache = RedisModelCacheRepository()
-        self.data_reader = DataReader()
         self.data_analyzer = DataAnalyzer()
         self.data_scaler = DataScaler()
-        self.download_data = self.data_reader.get_download_data()
-        self.upload_data = self.data_reader.get_upload_data()
 
     def get_stock_data_from_API(self, stock_symbol, interval, period):
         print("Starting data download")
@@ -182,6 +179,12 @@ class DataService:
         print("[process_data] Processing of data started")
         print("[process_data] Data columns:", data.columns)
         try:
+            # TODO change timestamp from now to last from dataset
+            three_years_ago = pd.Timestamp.now() - pd.DateOffset(years=3)
+            old_data_filtered = old_data[old_data.index >= three_years_ago].tail(100)
+            print(f"old data: \n {old_data_filtered}")
+            hurst_series = calculate_hurst_series(data['Close'], old_data_filtered['Close'])
+
             data.drop(columns=['Adj Close', 'Dividends', 'Stock Splits'], inplace=True)
             data['Return'] = data['Close'].pct_change()
             data.dropna(inplace=True)
@@ -191,9 +194,8 @@ class DataService:
             data['Hour'] = data.index.hour
             data['DayOfWeek'] = data.index.dayofweek
             data['IsWeekend'] = (data.index.dayofweek >= 5).astype(int)
-
-            # data['Hurst'] = calculate_hurst_series(data['Close'])
-            logging.error("Hurst finished")
+            data['Hurst'] = hurst_series
+            print(f"data head: \n {data.head()}")
             return data
         except Exception as e:
             print(jsonify({'error': str(e)}), 500)
@@ -203,9 +205,7 @@ class DataService:
     def get_objectives_from_data(self, processed_data):
         try:
             required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
-                                 'IsWeekend'
-                                 # , 'Hurst'
-                                 ]
+                                 'IsWeekend', 'Hurst']
             for feature in required_features:
                 if feature not in processed_data.columns:
                     error_message = f"Feature '{feature}' not found in data"

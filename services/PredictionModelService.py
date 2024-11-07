@@ -1,4 +1,3 @@
-import pickle
 from services.DataService import DataService
 from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
@@ -11,8 +10,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
 from utilities.dataScaler import DataScaler
-import numpy as np
-import datetime
+from hurst import compute_Hc
 
 PREDICTION_BASED_ON_HISTORICAL_DAYS = 1
 
@@ -76,6 +74,7 @@ class PredictionModelService:
         original_column_names = X_features.columns
         X_scaled, Y_scaled = self.data_scaler.scale_data(X_features, y)
         X_scaled_df = pd.DataFrame(X_scaled, columns=original_column_names, index=X_features.index)
+        original_data = X_scaled_df.copy()
 
         converted_index_time_features = pd.to_datetime(X_scaled_df.index)
         last_time_value = (converted_index_time_features[-1] - pd.Timedelta(days=PREDICTION_BASED_ON_HISTORICAL_DAYS))
@@ -116,7 +115,7 @@ class PredictionModelService:
 
                         self.append_prediction_results(model_name, prediction, predictions)
 
-                        new_row = self.create_new_row(next_date, prediction, temp_dataframe)
+                        new_row = self.create_new_row(next_date, prediction, temp_dataframe, original_data)
                         last_days_data = pd.concat([last_days_data.iloc[1:], new_row], axis=0)
                     else:
                         aggregated_features = {
@@ -131,7 +130,8 @@ class PredictionModelService:
                             'Year': last_days_data['Year'].iloc[-1],
                             'Hour': last_days_data['Hour'].iloc[-1],
                             'DayOfWeek': last_days_data['DayOfWeek'].iloc[-1],
-                            'IsWeekend': last_days_data['IsWeekend'].iloc[-1]
+                            'IsWeekend': last_days_data['IsWeekend'].iloc[-1],
+                            'Hurst': last_days_data['Hurst'].iloc[-1]
                         }
                         aggregated_features_df = pd.DataFrame([aggregated_features])
 
@@ -140,7 +140,7 @@ class PredictionModelService:
 
                         self.append_prediction_results(model_name, prediction, predictions)
 
-                        new_row = self.create_new_row(next_date, prediction, temp_dataframe)
+                        new_row = self.create_new_row(next_date, prediction, temp_dataframe, original_data)
                         last_days_data = pd.concat([last_days_data.iloc[1:], new_row], axis=0)
                     print(f"Predictions from {model_name}: {prediction}")
         dataframes = []
@@ -164,13 +164,22 @@ class PredictionModelService:
         predictions[model_name]['Close'].append(prediction[3])
         predictions[model_name]['Volume'].append(prediction[4])
 
-    def create_new_row(self, next_date, prediction, temp_dataframe):
+    def create_new_row(self, next_date, prediction, temp_dataframe, original_data):
         temp_dataframe.loc[temp_dataframe.index[-1], 'Day'] = next_date.day
         temp_dataframe.loc[temp_dataframe.index[-1], 'Month'] = next_date.month
         temp_dataframe.loc[temp_dataframe.index[-1], 'Year'] = next_date.year
         temp_dataframe.loc[temp_dataframe.index[-1], 'Hour'] = next_date.hour
         temp_dataframe.loc[temp_dataframe.index[-1], 'DayOfWeek'] = next_date.weekday()
         temp_dataframe.loc[temp_dataframe.index[-1], 'IsWeekend'] = 1 if next_date.weekday() >= 5 else 0
+
+        if len(temp_dataframe) < 100:
+            num_needed = 100 - len(temp_dataframe)
+            combined_close_data = pd.concat([original_data['Close'].iloc[-num_needed:], temp_dataframe['Close']])
+        else:
+            combined_close_data = temp_dataframe['Close'].iloc[-100:]
+
+        H, _, _ = compute_Hc(combined_close_data)
+        temp_dataframe.loc[temp_dataframe.index[-1], 'Hurst'] = round(H, 3)
 
         last_close = temp_dataframe.loc[temp_dataframe.index[-1], 'Close']
         new_row = pd.DataFrame([temp_dataframe.iloc[-1].values], columns=temp_dataframe.columns, index=[next_date])

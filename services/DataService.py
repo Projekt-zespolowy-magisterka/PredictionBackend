@@ -8,7 +8,7 @@ from utilities.statisticsCalculator import calculate_hurst_series
 import yfinance as yf
 import pandas as pd
 import os
-from flask import jsonify
+from flask import jsonify, current_app
 import logging
 
 
@@ -21,7 +21,7 @@ class DataService:
         self.data_scaler = DataScaler()
 
     def get_stock_data_from_API(self, stock_symbol, interval, period):
-        print("Starting data download")
+        current_app.logger.info("Starting data download")
         data = yf.download(stock_symbol, period=period, interval=interval, actions=True, prepost=True, threads=True)
         old_data = yf.download(stock_symbol, period='5y', interval='1d', actions=True, prepost=True, threads=True)
 

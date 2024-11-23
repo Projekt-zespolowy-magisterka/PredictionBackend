@@ -8,7 +8,7 @@ model_service = PredictionModelService()
 model_learn_service = ModelLearningService()
 
 
-@prediction_controller_blueprint.route('/predict/<string:stock_symbol>', methods=['GET'])
+@prediction_controller_blueprint.route('/predictor/predict/<string:stock_symbol>', methods=['GET'])
 def get_prediction(stock_symbol):
     try:
         interval, period, days_ahead = validate_request(stock_symbol)
@@ -18,7 +18,7 @@ def get_prediction(stock_symbol):
         return jsonify({'error': str(e)}), 500
 
 
-@prediction_controller_blueprint.route('/learn/<string:stock_symbol>', methods=['GET'])
+@prediction_controller_blueprint.route('/predictor/learn/<string:stock_symbol>', methods=['GET'])
 def learn_models(stock_symbol):
     try:
         interval, period, days_ahead = validate_request(stock_symbol)

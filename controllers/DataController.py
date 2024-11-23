@@ -5,8 +5,8 @@ data_controller_blueprint = Blueprint('data_controller', __name__)
 data_service = DataService()
 
 
-@data_controller_blueprint.route('/data/<string:stock_symbol>', methods=['GET'])
-def get_stock_data(stock_symbol):
+@data_controller_blueprint.route('/predictor/data/<string:stock_symbol>', methods=['GET'])
+def get_stock_data_from_API(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)
         data_service.get_stock_data_from_API(stock_symbol, interval, period)
@@ -15,7 +15,33 @@ def get_stock_data(stock_symbol):
         return jsonify({'error': str(e)}), 500
 
 
-@data_controller_blueprint.route('/data/convert/<string:stock_symbol>', methods=['GET'])
+@data_controller_blueprint.route('/predictor/data/saved/<string:stock_symbol>', methods=['GET'])
+def get_saved_stock_data(stock_symbol):
+    try:
+        interval, period = validate_request(stock_symbol)
+        data = data_service.get_parquet_data(stock_symbol, interval, period)
+
+        data_json = data.to_dict(orient='records')
+        return jsonify({'status': 'success', 'message': 'Stock data got successfully', 'data': data_json})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@data_controller_blueprint.route('/predictor/data/prediction/<string:stock_symbol>', methods=['GET'])
+def get_stock_prediction_data(stock_symbol):
+    try:
+        interval, period = validate_request(stock_symbol)
+
+        prediction_path = stock_symbol + "_PRED"
+        data = data_service.get_csv_data(prediction_path, interval, period)
+
+        data_json = data.to_dict(orient='records')
+        return jsonify({'status': 'success', 'message': 'Prediction data got successfully', 'data': data_json})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@data_controller_blueprint.route('/predictor/data/convert/<string:stock_symbol>', methods=['GET'])
 def convert_stock_parquet_to_csv(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)
@@ -25,7 +51,7 @@ def convert_stock_parquet_to_csv(stock_symbol):
         return jsonify({'error': str(e)}), 500
 
 
-@data_controller_blueprint.route('/data/ticker/<string:stock_symbol>', methods=['GET'])
+@data_controller_blueprint.route('/predictor/data/ticker/<string:stock_symbol>', methods=['GET'])
 def get_stock_ticker_info(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)

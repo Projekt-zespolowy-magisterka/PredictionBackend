@@ -12,20 +12,20 @@ To run this app you need to have docker with mongodb (at port 27017) and redis (
 #Sample Requests:
 
     #Get data
-    http://127.0.0.1:5000/data/^IXIC?period=10y&interval=1d
-    http://127.0.0.1:5000/data/AAPL?period=2y&interval=1h
+    http://127.0.0.1:5000/predictor/data/^IXIC?period=10y&interval=1d
+    http://127.0.0.1:5000/predictor/data/AAPL?period=2y&interval=1h
 
     #Convert
-    http://127.0.0.1:5000/data/convert/AAPL?period=2y&interval=1h
+    http://127.0.0.1:5000/predictor/data/convert/AAPL?period=2y&interval=1h
 
     #Depracated
-    http://127.0.0.1:5000/data/AAPL?start=2014-01-01&end=2015-01-01&interval=1h
+    http://127.0.0.1:5000/predictor/data/AAPL?start=2014-01-01&end=2015-01-01&interval=1h
 
     #Learning
-    http://127.0.0.1:5000/learn/AAPL?period=2y&interval=1h&days_ahead=3d
+    http://127.0.0.1:5000/predictor/learn/AAPL?period=2y&interval=1h&days_ahead=3d
 
     #Prediction
-    http://127.0.0.1:5000/predict/AAPL?period=2y&interval=1h&days_ahead=3d
+    http://127.0.0.1:5000/predictor/predict/AAPL?period=2y&interval=1h&days_ahead=3d
 
 
 # Alpha Vantage API key: ZIR2R5S4XI9QQNDB

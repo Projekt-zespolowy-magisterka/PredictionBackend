@@ -9,8 +9,18 @@ data_service = DataService()
 def get_stock_data_from_API(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)
-        data_service.get_stock_data_from_API(stock_symbol, interval, period)
-        return jsonify({'status': 'success', 'message': 'Stock data got successfully'})
+        response = data_service.get_stock_data_from_API(stock_symbol, interval, period)
+        return jsonify({'status': 'success', 'data': response})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@data_controller_blueprint.route('/predictor/data/chart/<string:stock_symbol>', methods=['GET'])
+def get_stock_chart_data_from_API(stock_symbol):
+    try:
+        interval, period = validate_request(stock_symbol)
+        response = data_service.get_stock_chart_data_from_API(stock_symbol, interval, period)
+        return jsonify({'status': 'success', 'data': response})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -55,8 +65,11 @@ def convert_stock_parquet_to_csv(stock_symbol):
 def get_stock_ticker_info(stock_symbol):
     try:
         interval, period = validate_request(stock_symbol)
-        data_service.get_stock_ticker_data(stock_symbol, interval, period)
-        return jsonify({'status': 'success', 'message': 'Data converted successfully'})
+        ticker = data_service.get_stock_ticker_data(stock_symbol, interval, period)
+
+        data_json = ticker.to_dict(orient='records')
+
+        return jsonify({'status': 'success', 'message': 'Ticker got sucessfully', 'data': data_json})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

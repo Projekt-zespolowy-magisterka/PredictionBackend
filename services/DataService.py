@@ -10,6 +10,7 @@ import pandas as pd
 import os
 from flask import jsonify, current_app
 import logging
+import json
 
 
 class DataService:
@@ -23,12 +24,53 @@ class DataService:
     def get_stock_data_from_API(self, stock_symbol, interval, period):
         current_app.logger.info("Starting data download")
         data = yf.download(stock_symbol, period=period, interval=interval, actions=True, prepost=True, threads=True)
+        ticker = yf.Ticker(stock_symbol)
+        stock_info = ticker.info
         old_data = yf.download(stock_symbol, period='5y', interval='1d', actions=True, prepost=True, threads=True)
 
+        adj_close = data['Adj Close']
+        change_1m = ((adj_close[-1] - adj_close[-30]) / adj_close[-30] * 100) if len(adj_close) >= 30 else None
+        change_3m = ((adj_close[-1] - adj_close[-90]) / adj_close[-90] * 100) if len(adj_close) >= 90 else None
+        change_6m = ((adj_close[-1] - adj_close[-180]) / adj_close[-180] * 100) if len(adj_close) >= 180 else None
+        change_1y = ((adj_close[-1] - adj_close[-252]) / adj_close[-252] * 100) if len(adj_close) >= 252 else None
+
         print(data.head())
+
+        response = {
+            "symbol": stock_symbol,
+            "name": stock_info.get("shortName", "N/A"),
+            "price": adj_close[-1],
+            "peRatio": stock_info.get("trailingPE", "N/A"),
+            "volume": int(data['Volume'].iloc[-1]),
+            "change1M": round(change_1m, 2) if change_1m is not None else None,
+            "change3M": round(change_3m, 2) if change_3m is not None else None,
+            "change6M": round(change_6m, 2) if change_6m is not None else None,
+            "change1Y": round(change_1y, 2) if change_1y is not None else None
+        }
         processed_data = self.process_data(data, old_data)
         self.file_repository.save_to_parquet(processed_data, stock_symbol, interval, period)
         print("Finished data download")
+        return [response]
+
+    def get_stock_chart_data_from_API(self, stock_symbol, interval, period):
+        current_app.logger.info("Starting data download")
+        data = yf.download(stock_symbol, period=period, interval=interval, actions=True, prepost=True, threads=True)
+
+        print(data.head())
+
+        response = [
+            {
+                "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                "open": row["Open"],
+                "high": row["High"],
+                "low": row["Low"],
+                "close": row["Close"],
+                "volume": row["Volume"]
+            }
+            for date, row in data.iterrows()
+        ]
+        print("Finished data download")
+        return [response]
 
     def get_stock_ticker_data(self, stock_symbol, interval, period):
 
@@ -96,6 +138,38 @@ class DataService:
 
         quarterly_earnings = ticker.quarterly_earnings
 
+        result = {
+            "basic_info": basic_info,
+            "historical_data": historical_data.reset_index().to_dict(
+                orient="records") if not historical_data.empty else [],
+            "financials": financials.to_dict(orient="index") if not financials.empty else {},
+            "quarterly_financials": quarterly_financials.to_dict(
+                orient="index") if not quarterly_financials.empty else {},
+            "balance_sheet": balance_sheet.to_dict(orient="index") if not balance_sheet.empty else {},
+            "quarterly_balance_sheet": quarterly_balance_sheet.to_dict(
+                orient="index") if not quarterly_balance_sheet.empty else {},
+            "cashflow": cashflow.to_dict(orient="index") if not cashflow.empty else {},
+            "quarterly_cashflow": quarterly_cashflow.to_dict(orient="index") if not quarterly_cashflow.empty else {},
+            "recommendations": recommendations.reset_index().to_dict(orient="records") if isinstance(recommendations,
+                                                                                                     pd.DataFrame) else [],
+            "sustainability": sustainability.to_dict(orient="index") if isinstance(sustainability,
+                                                                                   pd.DataFrame) else {},
+            "insider_transactions": insider_transactions.reset_index().to_dict(orient="records") if isinstance(
+                insider_transactions, pd.DataFrame) else [],
+            "major_holders": major_holders.to_dict() if isinstance(major_holders, pd.DataFrame) else {},
+            "institutional_holders": institutional_holders.to_dict() if isinstance(institutional_holders,
+                                                                                   pd.DataFrame) else {},
+            "options": list(options) if options else [],
+            "news": news,
+            "earnings": earnings.to_dict(orient="index") if not earnings.empty else {},
+            "quarterly_earnings": quarterly_earnings.to_dict(orient="index") if not quarterly_earnings.empty else {},
+        }
+
+        # Convert the result to JSON
+        response_json = json.dumps(result, indent=4)
+
+
+
         print("Basic Info:", basic_info)
         print("Historical Data:", historical_data.head())
         print("Financials:", financials)
@@ -152,6 +226,9 @@ class DataService:
         if isinstance(splits, pd.Series):
             splits.to_csv(os.path.join(folder_path, f"{stock_symbol}_splits.csv"))
             print(f"Splits data saved to {stock_symbol}_splits.csv")
+
+        return response_json
+
 
     def convert_parquet_to_csv(self, stock_symbol, interval, period):
         print("Started converting data")

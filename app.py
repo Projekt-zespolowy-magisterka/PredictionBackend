@@ -11,10 +11,10 @@ app.register_blueprint(prediction_controller_blueprint)
 app.register_blueprint(data_controller_blueprint)
 app.register_blueprint(test_controller_blueprint)
 
-# loki_url = 'http://localhost:3100/loki/api/v1/push'
+loki_url = 'http://localhost:3100/loki/api/v1/push'
 
 #TODO DOCKER LOKI SETUP USE PROFILES
-loki_url = 'http://loki:3100/loki/api/v1/push'
+# loki_url = 'http://loki:3100/loki/api/v1/push'
 
 
 handler = logging_loki.LokiHandler(

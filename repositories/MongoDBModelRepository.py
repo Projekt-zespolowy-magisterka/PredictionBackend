@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class MongoDBModelRepository:
-    def __init__(self, uri="mongodb://localhost:27017", db_name="model_db", collection_name="models"):
+    def __init__(self, uri="mongodb://localhost:27018", db_name="model_db", collection_name="models"):
         self.client = MongoClient(uri)
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]

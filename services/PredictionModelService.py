@@ -64,16 +64,18 @@ class PredictionModelService:
 
     def predict(self, stock_symbol, interval, period, days_ahead):
         self.load_models()
-
+        # TODO ADDING STATS
         print(f"Self models: {self.models}")
         if not self.models:
             raise ValueError("Models are not loaded.")
 
         all_data = self.data_service.get_parquet_data(stock_symbol, interval, period)
         X_features, y = self.data_service.get_objectives_from_data(all_data)
+        # X_array = np.array(X_features) if not isinstance(X_features, np.ndarray) else X_features
+
         original_column_names = X_features.columns
-        X_scaled, Y_scaled = self.data_scaler.scale_data(X_features, y)
-        X_scaled_df = pd.DataFrame(X_scaled, columns=original_column_names, index=X_features.index)
+        # X_scaled, Y_scaled = self.data_scaler.scale_data(X_features, y)
+        X_scaled_df = pd.DataFrame(X_features, columns=original_column_names, index=X_features.index)
         original_data = X_scaled_df.copy()
 
         converted_index_time_features = pd.to_datetime(X_scaled_df.index)
@@ -111,7 +113,9 @@ class PredictionModelService:
                                                                                 number_of_data_rows_for_prediction,
                                                                                 number_of_features)
                         raw_prediction = model.predict(last_days_data_reshaped)
+                        print(f"Model: {model_name}, predictions raw {raw_prediction}")
                         prediction = raw_prediction[0]
+                        print(f"Predictions {prediction}")
 
                         self.append_prediction_results(model_name, prediction, predictions)
 

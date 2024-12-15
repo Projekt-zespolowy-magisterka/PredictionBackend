@@ -2,7 +2,7 @@ from services.DataService import DataService
 from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
 from repositories.RedisModelCacheRepository import RedisModelCacheRepository
-from services.ModelLearningService import AVAILABLE_MODELS_NAMES
+from app_config.ModelConfig import AVAILABLE_MODELS_NAMES
 import pandas as pd
 from tensorflow.keras.models import Sequential
 from sklearn.linear_model import LinearRegression, Ridge

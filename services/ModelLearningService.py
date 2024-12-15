@@ -1,64 +1,21 @@
-from sklearn.model_selection import RepeatedKFold
-from sklearn.linear_model import LinearRegression, Ridge
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.neural_network import MLPRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import TimeSeriesSplit
 import numpy as np
-from utilities.statisticsCalculator import calculate_r_squared
 from repositories.FileModelRepository import FileModelRepository
 from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
 from repositories.RedisModelCacheRepository import RedisModelCacheRepository
 from utilities.dataAnalyser import DataAnalyzer
+from app_config.StatisticsConfig import metrics_array
 from utilities.dataScaler import DataScaler
 from services.DataService import DataService
+from services.StatisticsService import StatisticsService
+from app_config.ModelConfig import AVAILABLE_MODELS_NAMES, AVAILABLE_MODELS
 import time
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Input, LSTM, GRU, Bidirectional, Dense, Dropout
-from tensorflow.python.client import device_lib
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-import pandas as pd
-import os
-from openpyxl import Workbook, load_workbook
-from openpyxl.drawing.image import Image
-import matplotlib.pyplot as plt
-import matplotlib
-from matplotlib.ticker import MultipleLocator, MaxNLocator, FuncFormatter
 
-AVAILABLE_MODELS_NAMES = [
-    "DecisionTreeRegressor",
-    "RandomForestRegressor"
-    # ,
-    # "LSTM",
-    # "GRU",
-    # "Bi-Direct"
-]
 
-def calculate_r_squared(y_test, y_pred):
-    mean_y = np.mean(y_test)
-    SST = np.sum((y_test - mean_y) ** 2)
-    SSR = np.sum((y_test - y_pred) ** 2)
-    rsquared = 1 - (SSR / SST)
-    return rsquared
-
-matplotlib.use('Agg')
-
-# TODO IMPLEMENT MODEL EFFICIENCY TESTS
 class ModelLearningService:
-
-    metrics_array = [
-        mean_squared_error,
-        mean_absolute_error,
-        calculate_r_squared
-    ]
-
-    metrics_names = [
-        "mean_squared_error",
-        "mean_absolute_error",
-        "r_squared"
-    ]
 
     def __init__(self):
         self.model_repository = FileModelRepository()
@@ -67,23 +24,12 @@ class ModelLearningService:
         self.data_service = DataService()
         self.data_analyzer = DataAnalyzer()
         self.data_scaler = DataScaler()
-        self.models = [
-            DecisionTreeRegressor(),
-            RandomForestRegressor()
-            # ,
-            # Sequential(),
-            # Sequential(),
-            # Sequential()
-        ]
-        self.metrics_array = [
-            mean_squared_error,
-            mean_absolute_error,
-            calculate_r_squared
-        ]
+        self.statistics_service = StatisticsService()
+        self.models = AVAILABLE_MODELS
+        self.metrics_array = metrics_array
         self.models_names = AVAILABLE_MODELS_NAMES
 
     def learn_models(self, stock_symbol, interval, period):
-        # TODO adding stats
         data_for_train = self.data_service.get_parquet_data(stock_symbol, interval, period)
         X, y = self.data_service.get_objectives_from_data(data_for_train)
         number_of_features = X.shape[1]
@@ -92,16 +38,18 @@ class ModelLearningService:
         X = X.values
         y = y.values
 
-        # X_scaled, Y_scaled = self.data_scaler.scale_data(X, y)
         n_splits = 5
         tscv = TimeSeriesSplit(n_splits=n_splits)
 
         learned_models = {}
         print("[learn_models] Learning data set preparing to learn models")
-        current_value_index = 0
         models_size = len(self.models)
         metrics_size = len(self.metrics_array)
+
         cv_scores = np.zeros((models_size, metrics_size, n_splits, number_of_results))
+        print(f"cv_scores shape: {cv_scores.shape}")
+        print(f"models_size: {models_size}, metrics_size: {metrics_size}, n_splits: {n_splits}, number_of_results: {number_of_results}")
+
         for model_index, model in enumerate(self.models):
             current_value_index = 0
             current_model_name_key = self.models_names[model_index]
@@ -138,76 +86,16 @@ class ModelLearningService:
                     X_train, X_test = X[train_index], X[test_index]
                     y_train, y_test = y[train_index], y[test_index]
 
-                    print(f"X_train (Date-related info):")
-                    print(X_train[:, [6, 7, 8, 9]])
-
-                    print(f"X_test (Date-related info):")
-                    print(X_test[:, [6, 7, 8, 9]])
-
                     model.fit(X_train, y_train)
                     learned_models[current_model_name_key] = model
                     print("SSSS")
-                    temp_model_max, temp_model_min, cv_scores, y_pred = self.create_stats_of_model(X_test, learned_models[current_model_name_key], model_index, y_test, current_value_index, cv_scores)
+                    temp_model_max, temp_model_min, cv_scores, y_pred = self.statistics_service.create_stats_of_model(X_test, learned_models[current_model_name_key], model_index, y_test, current_value_index, cv_scores)
                     print("AAAAA")
+                    excel_file, fold_folder, results_df = self.statistics_service.save_stats_to_excel(X_test, X_train, current_model_name_key, current_value_index, model_index, stock_symbol, y_pred, y_test, y_train, cv_scores)
 
-                    folder_path = "stats"
-                    os.makedirs(folder_path, exist_ok=True)
-
-                    results_df = pd.DataFrame({
-                        'Day': X_test[:, 6],
-                        'Month': X_test[:, 7],
-                        'Year': X_test[:, 8],
-                        'Hour': X_test[:, 9],
-                        'y_test_Open': y_test[:, 0],
-                        'y_test_High': y_test[:, 1],
-                        'y_test_Low': y_test[:, 2],
-                        'y_test_Close': y_test[:, 3],
-                        'y_test_Volume': y_test[:, 4],
-                        'y_pred_Open': y_pred[:, 0],
-                        'y_pred_High': y_pred[:, 1],
-                        'y_pred_Low': y_pred[:, 2],
-                        'y_pred_Close': y_pred[:, 3],
-                        'y_pred_Volume': y_pred[:, 4],
-                    })
-
-                    fold_folder = os.path.join(folder_path, f"fold_{current_value_index}")
-                    os.makedirs(fold_folder, exist_ok=True)
-                    excel_file = os.path.join(fold_folder, f"model_results_{stock_symbol}_{current_model_name_key}_fold_{current_value_index}.xlsx")
-                    results_df.to_excel(excel_file, index=False)
                     print(f"Results saved to model_results_{stock_symbol}_{current_model_name_key}_fold_{current_value_index}.xlsx")
-                    print("CCCCC")
 
-                    plt.figure(figsize=(20, 12))
-                    plt.plot(results_df['Day'].astype(str) + '-' + results_df['Month'].astype(str) + '-' + results_df['Year'].astype(str),
-                             results_df['y_test_Open'], label='Actual Open', color='blue', marker='o')
-                    plt.plot(results_df['Day'].astype(str) + '-' + results_df['Month'].astype(str) + '-' + results_df['Year'].astype(str),
-                             results_df['y_pred_Open'], label='Predicted Open', color='red', linestyle='--', marker='x')
-
-                    plt.gca().yaxis.set_major_locator(MultipleLocator(2))
-                    plt.xlabel('Date')
-                    plt.ylabel('Open Price')
-                    plt.title('Predicted vs Actual Open Price')
-                    plt.xticks(rotation=90)
-                    plt.legend()
-
-                    image_folder = os.path.join(fold_folder, f"images")
-                    os.makedirs(image_folder, exist_ok=True)
-                    chart_path = os.path.join(image_folder, f"chart_{stock_symbol}_{current_model_name_key}_fold_{current_value_index}.png")
-                    plt.tight_layout()
-                    plt.savefig(chart_path)
-                    plt.close()
-
-                    print("LLLLLLLLLL")
-
-                    wb = load_workbook(excel_file)
-                    ws = wb.active
-                    last_column = len(results_df.columns) + 1
-                    img = Image(chart_path)
-                    ws.add_image(img, ws.add_image(img, f'{chr(65 + last_column)}10'))
-                    wb.save(excel_file)
-
-                    print(f"Results and chart saved to {excel_file}")
-                    print("OOOOOOOOO")
+                    self.statistics_service.save_chart_to_excel_file(current_model_name_key, current_value_index, excel_file, fold_folder, results_df, stock_symbol)
 
                     current_value_index += 1
                 end_time = time.time()
@@ -215,47 +103,8 @@ class ModelLearningService:
                 print(f"Minimum predicted value {temp_model_min}")
                 print(f"Maximum predicted value {temp_model_max}")
             print(f"[learn_models] Finished learning process of model: {current_model_name_key} in: {elapsed_time}\n")
-        self.display_results(cv_scores)
-        # self.save_models(learned_models)
-
-    def create_stats_of_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores):
-        print("BBB")
-        y_pred = model.predict(X_test)
-        # y_pred2 = model.predict(X_test)
-        print(f"Y_PRED: {y_pred}")
-        # print(f"Y_PRED2: {y_pred2}")
-        print("CCCCC")
-        temp_model_min = np.min(y_pred, axis=0)
-        temp_model_max = np.max(y_pred, axis=0)
-        print("ZZZ")
-        # for metric_index, metric_function in enumerate(self.metrics_array):
-        #     metric_value = metric_function(y_test, y_pred)
-        #     cv_scores[model_index, metric_index, current_value_index] = metric_value
-        for col_index in range(y_test.shape[1]):  # Loop over columns
-            for metric_index, metric_function in enumerate(self.metrics_array):
-                metric_value = metric_function(y_test[:, col_index], y_pred[:, col_index])
-                print(f"METRIC VALUE: {metric_value}")
-                cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
-        print("VVVV")
-        return temp_model_max, temp_model_min, cv_scores, y_pred
-
-    def display_results(self, cv_scores):
-        # for model_index, model in enumerate(self.models):
-        #     for metric_index, metric_function in enumerate(self.metrics_array):
-        #         current_metric = cv_scores[model_index, metric_index]
-        #         print(f"{self.models_names[model_index]}, metric name: {self.metrics_names[metric_index]}, mean: "
-        #               f"{np.mean(current_metric):.10f}, std: {np.std(current_metric):.10f}")
-        #     print()
-        for model_index, model in enumerate(self.models):
-            print(f"Results for model: {self.models_names[model_index]}")
-            for metric_index, metric_function in enumerate(self.metrics_array):
-                print(f"  Metric: {self.metrics_names[metric_index]}")
-                for col_index in range(cv_scores.shape[3]):  # Loop over columns
-                    current_metric = cv_scores[model_index, metric_index, :, col_index]
-                    mean_value = np.mean(current_metric)
-                    std_value = np.std(current_metric)
-                    print(f"    Column {col_index}: mean = {mean_value:.10f}, std = {std_value:.10f}")
-            print()
+        self.statistics_service.display_results(cv_scores)
+        # self.save_models(learned_models) //TODO uncomment
 
     def save_model(self, model, model_key):
         self.mongo_repo.save_model(model, model_key)

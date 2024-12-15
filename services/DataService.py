@@ -72,6 +72,142 @@ class DataService:
         print("Finished data download")
         return [response]
 
+    def convert_parquet_to_csv(self, stock_symbol, interval, period):
+        print("Started converting data")
+        parquet_data = self.file_repository.load_parquet(stock_symbol, interval, period)
+        self.file_repository.save_to_csv(parquet_data, stock_symbol, interval, period)
+        print("Finished converting data")
+
+    # TODO CHANGE THIS (less values)
+    def save_to_csv(self, data, stock_symbol, interval, period):
+        print("Started converting data")
+        pred_stock_name = stock_symbol + "_PRED"
+        self.file_repository.save_to_csv(data, pred_stock_name, interval, period)
+        print("Finished converting data")
+
+    def analyze_data(self):
+        self.data_analyzer.get_data_info()
+
+    def get_parquet_data(self, stock_symbol, interval, period):
+        return self.file_repository.load_parquet(stock_symbol, interval, period)
+
+    def get_csv_data(self, stock_symbol, interval, period):
+        return self.file_repository.load_csv(stock_symbol, interval, period)
+
+    def process_data(self, data, old_data):
+        print("[process_data] Processing of data started")
+        print("[process_data] Data columns:", data.columns)
+        try:
+            # TODO change timestamp from now to last from dataset
+            three_years_ago = pd.Timestamp.now() - pd.DateOffset(years=3)
+            old_data_filtered = old_data[old_data.index >= three_years_ago].tail(100)
+            print(f"old data: \n {old_data_filtered}")
+            hurst_series = calculate_hurst_series(data['Close'], old_data_filtered['Close'])
+
+            data.drop(columns=['Adj Close', 'Dividends', 'Stock Splits'], inplace=True)
+            data['Return'] = data['Close'].pct_change()
+            data.dropna(inplace=True)
+            data['Day'] = data.index.day
+            data['Month'] = data.index.month
+            data['Year'] = data.index.year
+            data['Hour'] = data.index.hour
+            data['DayOfWeek'] = data.index.dayofweek
+            data['IsWeekend'] = (data.index.dayofweek >= 5).astype(int)
+            data['Hurst'] = hurst_series
+            print(f"data head: \n {data.head()}")
+            return data
+        except Exception as e:
+            print(jsonify({'error': str(e)}), 500)
+            raise Exception(f"[process_data] Error: {e}")
+
+    # TODO ADD MINUTES
+    # TODO Make two get objectives with no values in X_test and with values in X_test that match values I want to predict
+    # TODO Make same two X wihout close, high etc but with no shift?
+    # TODO add random zeros in first scenario to close, open, etc?
+    def get_objectives_from_data(self, processed_data):
+        try:
+            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
+                                 'IsWeekend', 'Hurst']
+            for feature in required_features:
+                if feature not in processed_data.columns:
+                    error_message = f"Feature '{feature}' not found in data"
+                    logging.error(error_message)
+                    return jsonify({'error': error_message}), 400
+
+            features = processed_data[required_features]
+            features = features.apply(pd.to_numeric, errors='coerce')
+            print("[get_objectives_from_data] Feature data types:")
+            print(features.dtypes)
+
+            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
+            target = target.dropna()
+
+            if len(features) != len(target):
+                error_message = "Mismatch between features and target lengths after dropping NaNs"
+                logging.error(error_message)
+                return jsonify({'error': error_message}), 400
+
+            print("[get_objectives_from_data] Getting objectives from data finished")
+            X = features.copy()
+            y = target.copy()
+            return X, y
+        except Exception as e:
+            print(jsonify({'error': str(e)}), 500)
+            raise Exception(f"[get_objectives_from_data] Error: {e}")
+
+    def get_objectives_from_data_2(self, processed_data):
+        try:
+            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
+                                 'IsWeekend', 'Hurst']
+            for feature in required_features:
+                if feature not in processed_data.columns:
+                    error_message = f"Feature '{feature}' not found in data"
+                    logging.error(error_message)
+                    return jsonify({'error': error_message}), 400
+            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']].shift(-1)
+            combined = pd.concat([processed_data, target], axis=1)
+            combined.dropna(inplace=True)
+            X = combined.drop(columns=['Return', 'Open', 'High', 'Low', 'Close', 'Volume'])
+            y = combined[['Open', 'High', 'Low', 'Close', 'Volume']]
+            X = X.loc[:, ~X.columns.duplicated()]
+            y = y.loc[:, ~y.columns.duplicated()]
+            print(f"X: {X}")
+            print(f"y: {y}")
+
+            return X.copy(), y.copy()
+        except Exception as e:
+            print(jsonify({'error': str(e)}), 500)
+            raise Exception(f"[get_objectives_from_data] Error: {e}")
+
+
+    def get_objectives_from_data_3(self, processed_data):
+        try:
+            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
+                                 'IsWeekend', 'Hurst']
+            for feature in required_features:
+                if feature not in processed_data.columns:
+                    error_message = f"Feature '{feature}' not found in data"
+                    logging.error(error_message)
+                    return jsonify({'error': error_message}), 400
+            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
+            combined = pd.concat([processed_data, target], axis=1)
+            combined.dropna(inplace=True)
+            X = combined.drop(columns=['Return', 'Open', 'High', 'Low', 'Close', 'Volume'])
+            X = X.loc[:, ~X.columns.duplicated()]
+            y = combined[['Open', 'High', 'Low', 'Close', 'Volume']]
+            y = y.loc[:, ~y.columns.duplicated()]
+            print(f"X: {X}")
+            print(f"y: {y}")
+
+            return X.copy(), y.copy()
+        except Exception as e:
+            print(jsonify({'error': str(e)}), 500)
+            raise Exception(f"[get_objectives_from_data] Error: {e}")
+
+
+
+
+    # Ticker info just for analyze
     def get_stock_ticker_data(self, stock_symbol, interval, period):
 
         ticker = yf.Ticker(stock_symbol)
@@ -228,84 +364,3 @@ class DataService:
             print(f"Splits data saved to {stock_symbol}_splits.csv")
 
         return response_json
-
-
-    def convert_parquet_to_csv(self, stock_symbol, interval, period):
-        print("Started converting data")
-        parquet_data = self.file_repository.load_parquet(stock_symbol, interval, period)
-        self.file_repository.save_to_csv(parquet_data, stock_symbol, interval, period)
-        print("Finished converting data")
-
-    # TODO CHANGE THIS (less values)
-    def save_to_csv(self, data, stock_symbol, interval, period):
-        print("Started converting data")
-        pred_stock_name = stock_symbol + "_PRED"
-        self.file_repository.save_to_csv(data, pred_stock_name, interval, period)
-        print("Finished converting data")
-
-    def analyze_data(self):
-        self.data_analyzer.get_data_info()
-
-    def get_parquet_data(self, stock_symbol, interval, period):
-        return self.file_repository.load_parquet(stock_symbol, interval, period)
-
-    def get_csv_data(self, stock_symbol, interval, period):
-        return self.file_repository.load_csv(stock_symbol, interval, period)
-
-    def process_data(self, data, old_data):
-        print("[process_data] Processing of data started")
-        print("[process_data] Data columns:", data.columns)
-        try:
-            # TODO change timestamp from now to last from dataset
-            three_years_ago = pd.Timestamp.now() - pd.DateOffset(years=3)
-            old_data_filtered = old_data[old_data.index >= three_years_ago].tail(100)
-            print(f"old data: \n {old_data_filtered}")
-            hurst_series = calculate_hurst_series(data['Close'], old_data_filtered['Close'])
-
-            data.drop(columns=['Adj Close', 'Dividends', 'Stock Splits'], inplace=True)
-            data['Return'] = data['Close'].pct_change()
-            data.dropna(inplace=True)
-            data['Day'] = data.index.day
-            data['Month'] = data.index.month
-            data['Year'] = data.index.year
-            data['Hour'] = data.index.hour
-            data['DayOfWeek'] = data.index.dayofweek
-            data['IsWeekend'] = (data.index.dayofweek >= 5).astype(int)
-            data['Hurst'] = hurst_series
-            print(f"data head: \n {data.head()}")
-            return data
-        except Exception as e:
-            print(jsonify({'error': str(e)}), 500)
-            raise Exception(f"[process_data] Error: {e}")
-
-    # TODO ADD MINUTES
-    def get_objectives_from_data(self, processed_data):
-        try:
-            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
-                                 'IsWeekend', 'Hurst']
-            for feature in required_features:
-                if feature not in processed_data.columns:
-                    error_message = f"Feature '{feature}' not found in data"
-                    logging.error(error_message)
-                    return jsonify({'error': error_message}), 400
-
-            features = processed_data[required_features]
-            features = features.apply(pd.to_numeric, errors='coerce')
-            print("[get_objectives_from_data] Feature data types:")
-            print(features.dtypes)
-
-            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
-            target = target.dropna()
-
-            if len(features) != len(target):
-                error_message = "Mismatch between features and target lengths after dropping NaNs"
-                logging.error(error_message)
-                return jsonify({'error': error_message}), 400
-
-            print("[get_objectives_from_data] Getting objectives from data finished")
-            X = features.copy()
-            y = target.copy()
-            return X, y
-        except Exception as e:
-            print(jsonify({'error': str(e)}), 500)
-            raise Exception(f"[get_objectives_from_data] Error: {e}")

@@ -34,7 +34,7 @@ class StatisticsService:
         os.makedirs(folder_path, exist_ok=True)
         results_df, train_results_df = self.create_dataframes_for_excel(X_test, X_train, y_pred, y_test, y_train)
 
-        column_names = ["Open", "High", "Low", "Close", "Volume"]
+        column_names = ["Open", "High", "Low", "Close"]
         metrics_data = []
         for metric_index, metric_function in enumerate(self.metrics_array):
             for col_index in range(cv_scores.shape[3]):
@@ -86,12 +86,12 @@ class StatisticsService:
             'y_test_High': y_test[:, 1],
             'y_test_Low': y_test[:, 2],
             'y_test_Close': y_test[:, 3],
-            'y_test_Volume': y_test[:, 4],
+            # 'y_test_Volume': y_test[:, 4],
             'y_pred_Open': y_pred[:, 0],
             'y_pred_High': y_pred[:, 1],
             'y_pred_Low': y_pred[:, 2],
             'y_pred_Close': y_pred[:, 3],
-            'y_pred_Volume': y_pred[:, 4],
+            # 'y_pred_Volume': y_pred[:, 4],
         })
 
         train_results_df = pd.DataFrame({
@@ -103,7 +103,7 @@ class StatisticsService:
             'y_train_high': y_train[:, 1],
             'y_train_low': y_train[:, 2],
             'y_train_close': y_train[:, 3],
-            'y_train_volume': y_train[:, 4],
+            # 'y_train_volume': y_train[:, 4],
         })
         return results_df, train_results_df
 
@@ -117,12 +117,12 @@ class StatisticsService:
             'y_test_High': y_test[:, 1],
             'y_test_Low': y_test[:, 2],
             'y_test_Close': y_test[:, 3],
-            'y_test_Volume': y_test[:, 4],
+            # 'y_test_Volume': y_test[:, 4],
             'y_pred_Open': y_pred[:, 0],
             'y_pred_High': y_pred[:, 1],
             'y_pred_Low': y_pred[:, 2],
             'y_pred_Close': y_pred[:, 3],
-            'y_pred_Volume': y_pred[:, 4],
+            # 'y_pred_Volume': y_pred[:, 4],
         })
         train_results_df = pd.DataFrame({
             'Day_train': X_train[:, 6],
@@ -134,12 +134,12 @@ class StatisticsService:
             'X_train_high': X_train[:, 2],
             'X_train_low': X_train[:, 3],
             'X_train_close': X_train[:, 4],
-            'X_train_volume': X_train[:, 5],
+            # 'X_train_volume': X_train[:, 5],
             'y_train_open': y_train[:, 0],
             'y_train_high': y_train[:, 1],
             'y_train_low': y_train[:, 2],
             'y_train_close': y_train[:, 3],
-            'y_train_volume': y_train[:, 4],
+            # 'y_train_volume': y_train[:, 4],
         })
         return results_df, train_results_df
 
@@ -150,7 +150,7 @@ class StatisticsService:
         wb = load_workbook(excel_file)
         ws = wb.active
         current_row = len(results_df) + 5
-        for feature_index, feature_name in enumerate(['Open', 'High', 'Low', 'Close', 'Volume']):
+        for feature_index, feature_name in enumerate(['Open', 'High', 'Low', 'Close']):
             plt.figure(figsize=(20, 12))
             plt.plot(results_df['Day'].astype(str) + '-' + results_df['Month'].astype(str) + '-' + results_df['Year'].astype(str),
                 results_df[f'y_test_{feature_name}'], label=f'Actual {feature_name}', color='blue', marker='o')

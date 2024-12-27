@@ -112,7 +112,74 @@ class StockService:
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"File {filename} does not exist.")
 
-        return pd.read_csv(filepath)
+        df = pd.read_csv(filepath)
+        df = df.where(pd.notnull(df), None)
+        return df
+
+    def get_stock_info(self, symbol: str) -> Dict:
+        """Fetch and return stock data in the required JSON format."""
+        try:
+            # Fetch stock data for the given symbol
+            ticker = yf.Ticker(symbol)
+            stock_info = ticker.info
+            data = yf.download(symbol, period="1y", interval="1h", actions=True, prepost=True, threads=True)
+
+            # Extract relevant data
+            adj_close = data['Adj Close']
+            change_1m = _calculate_change(adj_close, 30)
+
+            # Prepare the chart data (OHLC + volume)
+            chart_data = []
+            for index, row in data.iterrows():
+                chart_data.append({
+                    "date": index.strftime("%Y-%m-%d %H:%M:%S"),
+                    "open": row['Open'],
+                    "high": row['High'],
+                    "low": row['Low'],
+                    "close": row['Close'],
+                    "volume": row['Volume']
+                })
+
+            # Prepare the full stock data JSON structure
+            stock_data = {
+                "symbol": symbol,
+                "name": stock_info.get("shortName", "N/A"),
+                "currentPrice": adj_close.iloc[-1] if not adj_close.empty else None,
+                "change": {
+                    "absolute": round(adj_close.iloc[-1] - adj_close.iloc[-30], 2) if not adj_close.empty else None,
+                    "percentage": change_1m,
+                },
+                "scores": [
+                    {"label": "Score 1", "buy": 75, "hold": 20, "sell": 5},
+                    {"label": "Score 2", "buy": 80, "hold": 15, "sell": 5},
+                ],
+                "statistics": [
+                    {"label": "Market Cap",
+                     "value": f"{stock_info.get('marketCap', 'N/A') / 1e12:.2f}T" if stock_info.get(
+                         'marketCap') else "N/A"},
+                    {"label": "P/E Ratio (TTM)",
+                     "value": f"{stock_info.get('trailingPE', 'N/A')}" if stock_info.get('trailingPE') else "N/A"},
+                    {"label": "EPS (TTM)",
+                     "value": f"{stock_info.get('regularMarketEPS', 'N/A')} USD" if stock_info.get(
+                         'regularMarketEPS') else "N/A"},
+                    {"label": "Dividend Yield",
+                     "value": f"{stock_info.get('dividendYield', 'N/A') * 100}%" if stock_info.get(
+                         'dividendYield') else "N/A"},
+                    {"label": "52-Week High",
+                     "value": f"{stock_info.get('fiftyTwoWeekHigh', 'N/A')} USD" if stock_info.get(
+                         'fiftyTwoWeekHigh') else "N/A"},
+                    {"label": "52-Week Low",
+                     "value": f"{stock_info.get('fiftyTwoWeekLow', 'N/A')} USD" if stock_info.get(
+                         'fiftyTwoWeekLow') else "N/A"},
+                ],
+                "chartData": chart_data  # Adding chart data to the final response
+            }
+
+            return stock_data
+
+        except Exception as e:
+            print(f"Error fetching data for {symbol}: {e}")
+            return {}
 
     def _save_to_csv(self, data: List[Dict], filename: str) -> None:
         """Save stock data to a CSV file."""

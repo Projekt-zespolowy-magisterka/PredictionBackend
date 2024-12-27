@@ -143,3 +143,17 @@ def save_stock_data():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@data_controller_blueprint.route('/predictor/data/stock_info/<string:stock_symbol>', methods=['GET'])
+def get_stock_info(stock_symbol):
+    try:
+        stock_service = StockService()
+        stock_data = stock_service.get_stock_info(stock_symbol)
+
+        if not stock_data:
+            return jsonify({'error': f"No data found for symbol {stock_symbol}"}), 404
+
+        return jsonify({'status': 'success', 'data': stock_data})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

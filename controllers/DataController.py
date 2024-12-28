@@ -102,20 +102,21 @@ def get_all_stock_tickers():
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 10))
 
-        # Load all stock data
         stock_service = StockService()
-        all_data = stock_service.load_all_stock_data()
+        filename = "stocks_data.csv"
 
         # Calculate pagination
-        total_records = len(all_data)
+        total_records = stock_service.get_total_records(filename)
         total_pages = (total_records + per_page - 1) // per_page
 
         if page < 1 or page > total_pages:
             raise ValueError(f"Page {page} is out of range. Total pages: {total_pages}")
 
         start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        paginated_data = all_data.iloc[start_idx:end_idx]
+        end_idx = min(start_idx + per_page, total_records)
+
+        # Load paginated data
+        paginated_data = stock_service.load_stock_data_paginated(filename, start_idx, end_idx)
 
         return jsonify({
             "status": "success",
@@ -137,7 +138,7 @@ def save_stock_data():
     try:
         # Fetch and save stock data to CSV
         stock_service = StockService()
-        stock_service.fetch_and_save_stock_data_from_validity("data_files/valid_tickers.csv", "stocks_data.csv")
+        stock_service.fetch_and_save_stock_data_from_validity("data_files/valid_new_tickers.csv", "stocks_data.csv")
 
         return jsonify({"status": "success", "message": "Stock data saved successfully."})
 

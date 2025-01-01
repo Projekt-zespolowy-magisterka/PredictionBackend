@@ -26,7 +26,7 @@ class StatisticsService:
         print(f"Model min: {temp_model_min}")
         print(f"Model max: {temp_model_max}")
 
-        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 4))
+        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, y_pred_scaled.shape[1]))
         aligned_y_test_original = scaler_y.inverse_transform(y_test)
 
         print(f"Y_pred {y_pred}")
@@ -47,17 +47,16 @@ class StatisticsService:
                 else:
                     metric_value = metric_function(y_test[:, col_index], y_pred_scaled[:, col_index])
                     cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
-        return cv_scores, y_pred, aligned_y_test_original
+        return cv_scores, y_pred
 
     def create_stats_of_sequential_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores, scaler_y):
-        # TODO check if metrics are reshaped
         y_pred_scaled = model.predict(X_test)
         temp_model_min = np.min(y_pred_scaled, axis=0)
         temp_model_max = np.max(y_pred_scaled, axis=0)
         print(f"Model min: {temp_model_min}")
         print(f"Model max: {temp_model_max}")
 
-        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 4))
+        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, y_pred_scaled.shape[1]))
         aligned_y_test_original = scaler_y.inverse_transform(y_test)
 
         print(f"Y_pred {y_pred}")
@@ -74,7 +73,7 @@ class StatisticsService:
             for metric_index, metric_function in enumerate(self.metrics_array):
                 metric_value = metric_function(aligned_y_test_original[:, col_index], y_pred[:, col_index])
                 cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
-        return cv_scores, y_pred, aligned_y_test_original
+        return cv_scores, y_pred
 
     def save_stats_to_excel(self, X_test, X_train, current_model_name_key, current_value_index, model_index, stock_symbol, y_pred, y_test, y_train, cv_scores):
         folder_path = os.path.join("data_files", stock_symbol, "stats")
@@ -82,7 +81,8 @@ class StatisticsService:
 
         results_df, train_results_df = self.create_dataframes_for_excel(X_test, X_train, y_pred, y_test, y_train)
 
-        column_names = ["Open", "High", "Low", "Close"]
+        # TODO zmianić tutaj zeby bylo odwolanie do innego miejsca tutaj
+        column_names = ["Open", "High", "Low", "Close", "Volume"]
         metrics_data = []
         for metric_index, metric_function in enumerate(self.metrics_array):
             for col_index in range(cv_scores.shape[3]):
@@ -133,10 +133,12 @@ class StatisticsService:
             'y_test_High': y_test[:, 1],
             'y_test_Low': y_test[:, 2],
             'y_test_Close': y_test[:, 3],
+            'y_test_Volume': y_test[:, 4],
             'y_pred_Open': y_pred[:, 0],
             'y_pred_High': y_pred[:, 1],
             'y_pred_Low': y_pred[:, 2],
             'y_pred_Close': y_pred[:, 3],
+            'y_pred_Volume': y_pred[:, 4],
         })
         train_results_df = pd.DataFrame({
             'Day_train': X_train[:, 6],
@@ -153,6 +155,7 @@ class StatisticsService:
             'y_train_high': y_train[:, 1],
             'y_train_low': y_train[:, 2],
             'y_train_close': y_train[:, 3],
+            'y_train_volume': y_train[:, 4],
         })
         return results_df, train_results_df
 
@@ -163,7 +166,8 @@ class StatisticsService:
         wb = load_workbook(excel_file)
         ws = wb.active
         current_row = len(results_df) + 5
-        for feature_index, feature_name in enumerate(['Open', 'High', 'Low', 'Close']):
+        # TODO add here this enumaration diffrent source
+        for feature_index, feature_name in enumerate(['Open', 'High', 'Low', 'Close', 'Volume']):
             plt.figure(figsize=(20, 12))
             plt.plot(results_df['Day'].astype(str) + '-' + results_df['Month'].astype(str) + '-' + results_df['Year'].astype(str),
                 results_df[f'y_test_{feature_name}'], label=f'Actual {feature_name}', color='blue', marker='o')

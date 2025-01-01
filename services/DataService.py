@@ -134,6 +134,8 @@ class DataService:
     # TODO add random zeros in first scenario to close, open, etc?
     def get_objectives_from_data(self, processed_data):
         try:
+            # TODO tutaj brakuje ME_10 i ME_50 do podpiedzia
+            # TODO wrzucic te odwolanie do innego miejsca
             required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek', 'IsWeekend', 'Hurst']
             for feature in required_features:
                 if feature not in processed_data.columns:
@@ -146,7 +148,8 @@ class DataService:
             print("[get_objectives_from_data] Feature data types:")
             print(features.dtypes)
 
-            target = processed_data[['Open', 'High', 'Low', 'Close']]
+            # TODO wrzucic to do innego miejsca to odwolanie
+            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
             target = target.dropna()
 
             if len(features) != len(target):

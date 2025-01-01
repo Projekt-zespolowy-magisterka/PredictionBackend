@@ -28,6 +28,8 @@ class ModelLearningService:
         self.metrics_array = metrics_array
         self.models_names = AVAILABLE_MODELS_NAMES
 
+    # TODO introduce random zeroes for train data??? looks like it works well in normal models to up prediction rates
+    # TODO czy zmiany reshapu wpływaja na zmiany wartości przy ponownym reshapowaniu i odwracaniu i czy 2 razy ta sama wartosc zreshapowana przez w innych zmiennych bedzie ta sama
     def learn_models(self, stock_symbol, interval, period):
         data_for_train = self.data_service.get_parquet_data(stock_symbol, interval, period)
         print(f"DATA FOR TRAIN: {data_for_train}")
@@ -70,11 +72,11 @@ class ModelLearningService:
             start_time = time.time()
             if isinstance(model, Sequential):
                 if current_model_name_key == 'LSTM':
-                    seq_model = self.create_lstm_model(model, number_of_features)
+                    seq_model = self.create_lstm_model(model, number_of_features, number_of_results)
                 if current_model_name_key == 'GRU':
-                    seq_model = self.create_gru_model(model, number_of_features)
+                    seq_model = self.create_gru_model(model, number_of_features, number_of_results)
                 if current_model_name_key == 'Bi-Direct':
-                    seq_model = self.create_bi_lstm_model(model, number_of_features)
+                    seq_model = self.create_bi_lstm_model(model, number_of_features, number_of_results)
 
                 for train_index, test_index in tscv.split(X_scaled, y_scaled):
                     X_train, X_test = X_scaled[train_index], X_scaled[test_index]
@@ -91,13 +93,13 @@ class ModelLearningService:
                     model.fit(X_train_seq, y_train_seq, validation_data=(X_test_seq, y_test_seq), epochs=50, batch_size=32) #TODO sprawdzic tez bez validation_data performance
                     learned_models[current_model_name_key] = seq_model
 
-                    cv_scores, y_pred, aligned_y_test_original = self.statistics_service.create_stats_of_sequential_model(
+                    cv_scores, y_pred = self.statistics_service.create_stats_of_sequential_model(
                         X_test_seq, learned_models[current_model_name_key], model_index, y_test_seq, current_value_index, cv_scores, scaler_y)
 
                     aligned_y_test = y_test[test_indices]
-                    aligned_y_test_original = scaler_y.inverse_transform(aligned_y_test.reshape(-1, 4))
+                    aligned_y_test_original = scaler_y.inverse_transform(aligned_y_test.reshape(-1, y_pred.shape[1]))
 
-                    y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, 4))
+                    y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, y_pred.shape[1]))
 
                     print(f"Y_train {y_train_inverse}")
                     X_test_unscaled = scaler_X.inverse_transform(X_test[test_indices])
@@ -125,10 +127,11 @@ class ModelLearningService:
                     model.fit(X_train, y_train)
                     learned_models[current_model_name_key] = model
 
-                    cv_scores, y_pred, aligned_y_test_original = self.statistics_service.create_stats_of_model(
+                    cv_scores, y_pred = self.statistics_service.create_stats_of_model(
                         X_test, learned_models[current_model_name_key], model_index, y_test, current_value_index, cv_scores, scaler_y)
 
-                    y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, 4))
+                    y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, y_pred.shape[1]))
+                    aligned_y_test_original = scaler_y.inverse_transform(y_test)
 
                     print(f"Y_train {y_train_inverse}")
                     X_test_unscaled = scaler_X.inverse_transform(X_test)
@@ -156,7 +159,7 @@ class ModelLearningService:
             self.mongo_repo.save_model(model, model_key)
             self.redis_cache.cache_model(model, model_key)
 
-    def create_lstm_model(self, model, number_of_features):
+    def create_lstm_model(self, model, number_of_features, number_of_results):
         # print(f"Creating lstm")
         # print(f"Creating first layer of lstm")
         # model.add(LSTM(units=50, return_sequences=True, input_shape=(10, number_of_features), name="lstm_layer_1"))
@@ -185,13 +188,13 @@ class ModelLearningService:
         model.add(LSTM(units=50, return_sequences=True, input_shape=(10, number_of_features)))
         model.add(Dropout(0.1))
         model.add(LSTM(units=50))
-        model.add(Dense(units=4))
+        model.add(Dense(units=number_of_results))
         model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
 
         return model
 
-    def create_gru_model(self, model, number_of_features):
+    def create_gru_model(self, model, number_of_features, number_of_results):
         model.add(GRU(units=50, return_sequences=True, input_shape=(1, number_of_features), name="gru_layer_1"))
         model.add(Dropout(0.2, name="dropout_1"))
 
@@ -204,11 +207,11 @@ class ModelLearningService:
         model.add(GRU(units=50, name="gru_layer_4"))
         model.add(Dropout(0.2, name="dropout_4"))
 
-        model.add(Dense(units=4, name="output_layer"))
+        model.add(Dense(units=number_of_results, name="output_layer"))
         model.compile(optimizer='adam', loss='mse')
         return model
 
-    def create_bi_lstm_model(self, model, number_of_features):
+    def create_bi_lstm_model(self, model, number_of_features, number_of_results):
         model.add(Bidirectional(LSTM(units=20, return_sequences=True), input_shape=(1, number_of_features), name="bi_lstm_layer_1"))
         model.add(Dropout(0.3, name="dropout_1"))
 
@@ -221,7 +224,7 @@ class ModelLearningService:
         # model.add(Bidirectional(LSTM(units=50), name="bi_lstm_layer_4"))
         # model.add(Dropout(0.2, name="dropout_4"))
 
-        model.add(Dense(units=4, name="output_layer"))
+        model.add(Dense(units=number_of_results, name="output_layer"))
         model.compile(optimizer='adam', loss='mse')
         return model
 

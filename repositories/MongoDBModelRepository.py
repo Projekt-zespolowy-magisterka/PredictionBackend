@@ -44,7 +44,7 @@ class MongoDBModelRepository:
         doc = self.collection.find_one({"_id": model_key})
         if doc:
             model_data = self.fs.get(doc["model_file_id"]).read()
-            print(f"Model {model_data} loaded")
+            print(f"Model {model_key} loaded")
             return pickle.loads(model_data)
         print(f"Model {model_key} not found")
         return None

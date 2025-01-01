@@ -1,53 +1,53 @@
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
+import pandas as pd
 from utilities.dataScaler import DataScaler
+
 
 flag = True
 
-# TODO MORE REFACTOR TO SUITE FOR CURRENT IMPL
+
+# TODO zrobić coś z tymi nazwami ścieżek do zapisu
+# TODO podpiąć ścieżke z file repository a tam dodać geta na bazowa sciezke
 class DataAnalyzer:
-    def __init__(self):
+    def __init__(self, output_dir="data_files"):
         self.data_scaler = DataScaler()
-        self.base_data = True
-        self.data_in_column = True
-        self.speed_info = True
-        self.plot_histograms = True
-        self.plot_scatterplot = True
-        self.plot_heat_map = True
-        self.print_scaled_comparison = True
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
 
-    def get_data_info(self, data):
-        self.base_data_info(data)
-        self.analyze_data(data)
+    def get_data_info(self, data, stock_symbol):
+        self.base_data_info(data, stock_symbol)
+        self.analyze_data(data, stock_symbol)
 
-    @staticmethod
-    def analyze_data(data, current_data_type):
+    def analyze_data(self, data, stock_symbol):
         print()
         amount_of_rows_duplicated = data.duplicated().sum()
         print("Rows duplicated:")
         print(amount_of_rows_duplicated)
         print("\n")
 
-        # DataAnalyzer.data_in_column_info(data, column_name)
-        DataAnalyzer.speed_info(data)
-        # plot_histograms(data)
-        # plot_scatterplot_of_column(data, column_name)
-        DataAnalyzer.plot_heat_map(data)
+        self.data_in_column_info(data, stock_symbol)
+        self.plot_histograms(data, stock_symbol)
+        self.plot_scatterplot_of_column(data, stock_symbol)
+        self.plot_heat_map(data, stock_symbol)
 
-    @staticmethod
-    def data_in_column_info(data, column_name):
+    def data_in_column_info(self, data, stock_symbol):
         print("Amount of not unique throughput rows:")
-        amount_of_not_unique_rows = data[column_name].nunique()
-        print(amount_of_not_unique_rows)
-        print("\n")
-        print("Mean throughput:")
-        mean_throughput = data[column_name].mean()
-        print(mean_throughput)
-        print("\n")
+        excluded_columns = ["Datetime", "Day", "Month", "Year", "Hour", "DayOfWeek", "IsWeekend"]
+        for column_name in data.columns:
+            if column_name not in excluded_columns:
+                amount_of_not_unique_rows = data[column_name].nunique()
+                print(f"Amount of not unique rows in {column_name}: {amount_of_not_unique_rows}")
+                print("\n")
+                if pd.api.types.is_numeric_dtype(data[column_name]):
+                    mean = data[column_name].mean()
+                    print(f"Mean value of {column_name}: {mean}")
+                else:
+                    print(f"{column_name} is not numeric. Skipping mean calculation.")
+                print("\n")
 
-    @staticmethod
-    def base_data_info(data):
+    def base_data_info(self, data, stock_symbol):
         rows_amount = 100
         data_head = data.head(rows_amount)
         print()
@@ -63,45 +63,49 @@ class DataAnalyzer:
         print(data.isnull().any())
         print("\n")
 
-    @staticmethod
-    def speed_info(data):
-        speed_array = np.array(data['speed'])
-        amount_of_non_zeroes = np.count_nonzero(speed_array)
-        print("Amount of zeroes in speed column:")
-        print(amount_of_non_zeroes)
-        print("\n")
+    def plot_histograms(self, data, stock_symbol):
+        excluded_columns = ["Datetime", "Day", "Month", "Year", "Hour", "DayOfWeek", "IsWeekend"]
+        base_output_dir = os.path.join(self.output_dir, stock_symbol, "analysis", "histograms")
+        os.makedirs(base_output_dir, exist_ok=True)
 
-    @staticmethod
-    def plot_histograms(data):
         for column in data.columns:
-            data[column].hist()
-            plt.xlabel(column)
-            plt.ylabel('Frequency')
-            plt.title(f'Histogram of {column}')
-            plt.show()
+            if column not in excluded_columns:
+                plt.figure()
+                data[column].hist()
+                plt.xlabel(column)
+                plt.ylabel('Frequency')
+                plt.title(f'Histogram of {column}')
+                output_path = os.path.join(base_output_dir, f"histogram_{column}.png")
+                plt.savefig(output_path)
+                plt.close()
+                print(f"Histogram saved for {column} at {output_path}")
 
-    @staticmethod
-    def plot_scatterplot_of_column(data, column_name):
-        for column in data.columns:
-            data.plot(y=column_name, x=column, kind='scatter')
-            plt.xlabel(column)
-            plt.ylabel(column_name)
-            plt.title(f'Scatterplot of {column}')
-            plt.show()
+    def plot_scatterplot_of_column(self, data, stock_symbol):
+        excluded_columns = ["Datetime", "Day", "Month", "Year", "Hour", "DayOfWeek", "IsWeekend"]
+        base_output_dir = os.path.join(self.output_dir, stock_symbol, "analysis", "scatterplot")
+        os.makedirs(base_output_dir, exist_ok=True)
+        for column_name in data.columns:
+            if column_name not in excluded_columns:
+                plt.figure()
+                data.plot(y=column_name, x=column_name, kind='scatter')
+                plt.xlabel(column_name)
+                plt.ylabel(column_name)
+                plt.title(f'Scatterplot of {column_name}')
+                output_path = os.path.join(base_output_dir, f"scatterplot_{column_name}.png")
+                plt.savefig(output_path)
+                plt.close()
+                print(f"Scatterplot saved for {column_name} at {output_path}")
 
-    @staticmethod
-    def plot_heat_map(data):
-        corr = data.corr()
+    def plot_heat_map(self, data, stock_symbol):
+        numeric_data = data.select_dtypes(include=['number'])
+        base_output_dir = os.path.join(self.output_dir, stock_symbol, "analysis", "heatmap")
+        os.makedirs(base_output_dir, exist_ok=True)
         plt.figure(figsize=[20, 10])
-        sns.heatmap(corr, annot=True)
+        corr = numeric_data.corr()
+        sns.heatmap(corr, annot=True, cmap='coolwarm')
         plt.xticks(rotation=45)
         plt.title("Heatmap of Correlation Coefficient", size=12)
-        plt.show()
-
-    @staticmethod
-    def plot_histograms_from_array(data, column_index):
-        plt.hist(data)
-        plt.xlabel('Values')
-        plt.ylabel('Frequency')
-        plt.title(f'Histogram of column with index {column_index}')
-        plt.show()
+        output_path = os.path.join(base_output_dir, "heatmap.png")
+        plt.savefig(output_path)
+        plt.close()
+        print(f"Heatmap saved at {output_path}")

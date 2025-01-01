@@ -3,7 +3,6 @@ from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
 from repositories.RedisModelCacheRepository import RedisModelCacheRepository
 from utilities.dataAnalyser import DataAnalyzer
-from utilities.dataScaler import DataScaler
 from utilities.statisticsCalculator import calculate_hurst_series
 import yfinance as yf
 import pandas as pd
@@ -19,7 +18,6 @@ class DataService:
         self.mongo_repo = MongoDBModelRepository()
         self.redis_cache = RedisModelCacheRepository()
         self.data_analyzer = DataAnalyzer()
-        self.data_scaler = DataScaler()
 
     def get_stock_data_from_API(self, stock_symbol, interval, period):
         current_app.logger.info("Starting data download")
@@ -49,6 +47,7 @@ class DataService:
         }
         processed_data = self.process_data(data, old_data)
         self.file_repository.save_to_parquet(processed_data, stock_symbol, interval, period)
+        self.file_repository.save_to_csv(processed_data, stock_symbol, interval, period)
         print("Finished data download")
         return [response]
 
@@ -69,6 +68,13 @@ class DataService:
             }
             for date, row in data.iterrows()
         ]
+        response_df = pd.DataFrame(response)
+
+        # TODO change this beacause it create unnececary chart directory but except that work ok
+        base_output_dir = os.path.join("chart")
+        os.makedirs(base_output_dir, exist_ok=True)
+        self.file_repository.save_to_parquet(response_df, base_output_dir, interval, period)
+        self.file_repository.save_to_csv(response_df, base_output_dir, interval, period)
         print("Finished data download")
         return [response]
 
@@ -78,15 +84,15 @@ class DataService:
         self.file_repository.save_to_csv(parquet_data, stock_symbol, interval, period)
         print("Finished converting data")
 
-    # TODO CHANGE THIS (less values)
-    def save_to_csv(self, data, stock_symbol, interval, period):
+    def save_predictions_to_csv(self, data, stock_symbol, interval, period):
         print("Started converting data")
         pred_stock_name = stock_symbol + "_PRED"
         self.file_repository.save_to_csv(data, pred_stock_name, interval, period)
         print("Finished converting data")
 
-    def analyze_data(self):
-        self.data_analyzer.get_data_info()
+    def analyze_data(self, stock_symbol, interval, period):
+        data = self.file_repository.load_csv(stock_symbol, interval, period)
+        self.data_analyzer.get_data_info(data, stock_symbol)
 
     def get_parquet_data(self, stock_symbol, interval, period):
         return self.file_repository.load_parquet(stock_symbol, interval, period)
@@ -103,8 +109,7 @@ class DataService:
             old_data_filtered = old_data[old_data.index >= three_years_ago].tail(100)
             print(f"old data: \n {old_data_filtered}")
             hurst_series = calculate_hurst_series(data['Close'], old_data_filtered['Close'])
-
-            data.drop(columns=['Adj Close', 'Dividends', 'Stock Splits'], inplace=True)
+            data.drop(columns=['Adj Close', 'Dividends', 'Stock Splits'], inplace=True)  #TODO sprawdzic dzialanie aktualne z dywidendami i spliatami
             data['Return'] = data['Close'].pct_change()
             data.dropna(inplace=True)
             data['Day'] = data.index.day
@@ -114,6 +119,9 @@ class DataService:
             data['DayOfWeek'] = data.index.dayofweek
             data['IsWeekend'] = (data.index.dayofweek >= 5).astype(int)
             data['Hurst'] = hurst_series
+            data['MA_10'] = data['Close'].rolling(window=10).mean() #TODO dorobić tutaj poprawne wpisyanie w poczatkowych rekordach
+            data['MA_50'] = data['Close'].rolling(window=50).mean()
+
             print(f"data head: \n {data.head()}")
             return data
         except Exception as e:
@@ -122,7 +130,7 @@ class DataService:
 
     # TODO ADD MINUTES
     # TODO Make two get objectives with no values in X_test and with values in X_test that match values I want to predict
-    # TODO Make same two X wihout close, high etc but with no shift?
+    # TODO Make same two X wihout close, high etc but with shift (shift(-1))?
     # TODO add random zeros in first scenario to close, open, etc?
     def get_objectives_from_data(self, processed_data):
         try:
@@ -154,212 +162,122 @@ class DataService:
             print(jsonify({'error': str(e)}), 500)
             raise Exception(f"[get_objectives_from_data] Error: {e}")
 
-    def get_objectives_from_data_2(self, processed_data):
-        try:
-            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
-                                 'IsWeekend', 'Hurst']
-            for feature in required_features:
-                if feature not in processed_data.columns:
-                    error_message = f"Feature '{feature}' not found in data"
-                    logging.error(error_message)
-                    return jsonify({'error': error_message}), 400
-            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']].shift(-1)
-            combined = pd.concat([processed_data, target], axis=1)
-            combined.dropna(inplace=True)
-            X = combined.drop(columns=['Return', 'Open', 'High', 'Low', 'Close', 'Volume'])
-            y = combined[['Open', 'High', 'Low', 'Close', 'Volume']]
-            X = X.loc[:, ~X.columns.duplicated()]
-            y = y.loc[:, ~y.columns.duplicated()]
-            print(f"X: {X}")
-            print(f"y: {y}")
-
-            return X.copy(), y.copy()
-        except Exception as e:
-            print(jsonify({'error': str(e)}), 500)
-            raise Exception(f"[get_objectives_from_data] Error: {e}")
-
-
-    def get_objectives_from_data_3(self, processed_data):
-        try:
-            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek',
-                                 'IsWeekend', 'Hurst']
-            for feature in required_features:
-                if feature not in processed_data.columns:
-                    error_message = f"Feature '{feature}' not found in data"
-                    logging.error(error_message)
-                    return jsonify({'error': error_message}), 400
-            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
-            combined = pd.concat([processed_data, target], axis=1)
-            combined.dropna(inplace=True)
-            X = combined.drop(columns=['Return', 'Open', 'High', 'Low', 'Close', 'Volume'])
-            X = X.loc[:, ~X.columns.duplicated()]
-            y = combined[['Open', 'High', 'Low', 'Close', 'Volume']]
-            y = y.loc[:, ~y.columns.duplicated()]
-            print(f"X: {X}")
-            print(f"y: {y}")
-
-            return X.copy(), y.copy()
-        except Exception as e:
-            print(jsonify({'error': str(e)}), 500)
-            raise Exception(f"[get_objectives_from_data] Error: {e}")
-
-
-
-
     # Ticker info just for analyze
     def get_stock_ticker_data(self, stock_symbol, interval, period):
-
         ticker = yf.Ticker(stock_symbol)
-        print("Ticker: \n")
-        print(ticker)
+        print("Ticker: \n", ticker)
 
-        print("\n \nTicker attributes\n")
+        print("\n\nTicker attributes\n")
         ticker_attributes = dir(ticker)
         print(ticker_attributes)
 
-        # 1. Basic Information
-        basic_info = ticker.info
+        try:
+            # 1. Basic Information
+            basic_info = ticker.info
 
-        # 2. Historical Market Data
-        historical_data = ticker.history(period=period, interval=interval, actions=True, prepost=True)
+            # 2. Historical Market Data
+            historical_data = ticker.history(period=period, interval=interval, actions=True, prepost=True)
 
-        # 3. Financials
-        financials = ticker.financials
-        quarterly_financials = ticker.quarterly_financials
-        balance_sheet = ticker.balance_sheet
-        quarterly_balance_sheet = ticker.quarterly_balance_sheet
-        cashflow = ticker.cashflow
-        quarterly_cashflow = ticker.quarterly_cashflow
+            # Helper function to safely convert data to JSON-serializable format
+            def safe_to_dict(obj):
+                if isinstance(obj, pd.DataFrame):
+                    # Reset index and convert keys to strings
+                    obj = obj.reset_index()
+                    obj.columns = [str(col) if not isinstance(col, str) else col for col in obj.columns]
+                    return obj.applymap(
+                        lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x
+                    ).to_dict(orient="records")
+                if isinstance(obj, pd.Series):
+                    return obj.apply(lambda x: x.isoformat() if isinstance(x, pd.Timestamp) else x).to_dict()
+                if isinstance(obj, dict):
+                    return {str(k): v for k, v in obj.items()}  # Convert keys to strings
+                return {}
 
-        # # 4. Valuation Metrics
-        # valuation = ticker.valuation
+            # Financial data
+            financials = safe_to_dict(ticker.financials)
+            quarterly_financials = safe_to_dict(ticker.quarterly_financials)
+            balance_sheet = safe_to_dict(ticker.balance_sheet)
+            quarterly_balance_sheet = safe_to_dict(ticker.quarterly_balance_sheet)
+            cashflow = safe_to_dict(ticker.cashflow)
+            quarterly_cashflow = safe_to_dict(ticker.quarterly_cashflow)
 
-        # 5. Analyst Recommendations
-        recommendations = ticker.recommendations
+            # Recommendations and other data
+            recommendations = ticker.recommendations.reset_index().apply(
+                lambda x: x.map(lambda y: y.isoformat() if isinstance(y, pd.Timestamp) else y)
+            ).to_dict(orient="records") if isinstance(ticker.recommendations, pd.DataFrame) else []
 
-        # 6. Sustainability Data
-        sustainability = ticker.sustainability
+            sustainability = safe_to_dict(ticker.sustainability)
+            insider_transactions = ticker.insider_transactions.reset_index().apply(
+                lambda x: x.map(lambda y: y.isoformat() if isinstance(y, pd.Timestamp) else y)
+            ).to_dict(orient="records") if isinstance(ticker.insider_transactions, pd.DataFrame) else []
 
-        # 7. Insider Transactions
-        insider_transactions = ticker.insider_transactions
+            major_holders = safe_to_dict(ticker.major_holders)
+            institutional_holders = safe_to_dict(ticker.institutional_holders)
 
-        # 8. Major Holders
-        major_holders = ticker.major_holders
+            # Options Data
+            options = list(ticker.options) if ticker.options else []
 
-        # 9. Institutional Ownership
-        institutional_holders = ticker.institutional_holders
+            # Dividends and Splits
+            dividends = safe_to_dict(ticker.dividends)
+            splits = safe_to_dict(ticker.splits)
 
-        # 10. Options Data
-        options = ticker.options  # List of expiration dates
-        option_chain = ticker.option_chain(
-            options[0]) if options else None  # Get option chain for the first expiration date
+            # News
+            news = ticker.news
 
-        # 11. Dividends and Splits
-        dividends = ticker.dividends
-        splits = ticker.splits
+            # Earnings
+            earnings = safe_to_dict(ticker.income_stmt)
+            quarterly_earnings = safe_to_dict(ticker.quarterly_earnings)
 
-        # # 11 half. Shares
-        # shares = ticker.shares
+            # Construct the result dictionary
+            result = {
+                "basic_info": basic_info,
+                "historical_data": safe_to_dict(historical_data),
+                "financials": financials,
+                "quarterly_financials": quarterly_financials,
+                "balance_sheet": balance_sheet,
+                "quarterly_balance_sheet": quarterly_balance_sheet,
+                "cashflow": cashflow,
+                "quarterly_cashflow": quarterly_cashflow,
+                "recommendations": recommendations,
+                "sustainability": sustainability,
+                "insider_transactions": insider_transactions,
+                "major_holders": major_holders,
+                "institutional_holders": institutional_holders,
+                "options": options,
+                "news": news,
+                "earnings": earnings,
+                "quarterly_earnings": quarterly_earnings,
+            }
 
-        # # 12. Current Quote
-        # current_quote = ticker.quote
+            # Convert the result to JSON
+            response_json = json.dumps(result, indent=4)
 
-        # 13. News
-        news = ticker.news
+            # Save data to folder
+            # TODO zrobić tutaj ładniej to z tymi scieżkami
+            base_output_dir = os.path.join("data_files", stock_symbol, "ticker")
+            os.makedirs(base_output_dir, exist_ok=True)
 
-        # 14. Earnings
-        # earnings = ticker.earnings depracated use:
-        earnings = ticker.income_stmt
+            # Save historical data
+            historical_data.to_csv(os.path.join(base_output_dir, f"{stock_symbol}_historical_data.csv"))
 
-        quarterly_earnings = ticker.quarterly_earnings
+            # Save other datasets
+            for name, data in [
+                ("financials", financials),
+                ("quarterly_financials", quarterly_financials),
+                ("balance_sheet", balance_sheet),
+                ("cashflow", cashflow),
+            ]:
+                if isinstance(data, list) and data:
+                    pd.DataFrame(data).to_csv(os.path.join(base_output_dir, f"{stock_symbol}_{name}.csv"))
 
-        result = {
-            "basic_info": basic_info,
-            "historical_data": historical_data.reset_index().to_dict(
-                orient="records") if not historical_data.empty else [],
-            "financials": financials.to_dict(orient="index") if not financials.empty else {},
-            "quarterly_financials": quarterly_financials.to_dict(
-                orient="index") if not quarterly_financials.empty else {},
-            "balance_sheet": balance_sheet.to_dict(orient="index") if not balance_sheet.empty else {},
-            "quarterly_balance_sheet": quarterly_balance_sheet.to_dict(
-                orient="index") if not quarterly_balance_sheet.empty else {},
-            "cashflow": cashflow.to_dict(orient="index") if not cashflow.empty else {},
-            "quarterly_cashflow": quarterly_cashflow.to_dict(orient="index") if not quarterly_cashflow.empty else {},
-            "recommendations": recommendations.reset_index().to_dict(orient="records") if isinstance(recommendations,
-                                                                                                     pd.DataFrame) else [],
-            "sustainability": sustainability.to_dict(orient="index") if isinstance(sustainability,
-                                                                                   pd.DataFrame) else {},
-            "insider_transactions": insider_transactions.reset_index().to_dict(orient="records") if isinstance(
-                insider_transactions, pd.DataFrame) else [],
-            "major_holders": major_holders.to_dict() if isinstance(major_holders, pd.DataFrame) else {},
-            "institutional_holders": institutional_holders.to_dict() if isinstance(institutional_holders,
-                                                                                   pd.DataFrame) else {},
-            "options": list(options) if options else [],
-            "news": news,
-            "earnings": earnings.to_dict(orient="index") if not earnings.empty else {},
-            "quarterly_earnings": quarterly_earnings.to_dict(orient="index") if not quarterly_earnings.empty else {},
-        }
+            if isinstance(dividends, dict):
+                pd.Series(dividends).to_csv(os.path.join(base_output_dir, f"{stock_symbol}_dividends.csv"))
 
-        # Convert the result to JSON
-        response_json = json.dumps(result, indent=4)
+            if isinstance(splits, dict):
+                pd.Series(splits).to_csv(os.path.join(base_output_dir, f"{stock_symbol}_splits.csv"))
 
+            return response_json
 
-
-        print("Basic Info:", basic_info)
-        print("Historical Data:", historical_data.head())
-        print("Financials:", financials)
-        print("Quarterly Financials:", quarterly_financials)
-        print("Balance Sheet:", balance_sheet)
-        print("Quarterly Balance Sheet:", quarterly_balance_sheet)
-        print("Cashflow:", cashflow)
-        print("Quarterly Cashflow:", quarterly_cashflow)
-        # print("Valuation:", valuation)
-        print("Recommendations:", recommendations)
-        print("Sustainability:", sustainability)
-        print("Insider Transactions:", insider_transactions)
-        print("Major Holders:", major_holders)
-        print("Institutional Holders:", institutional_holders)
-        print("Options Data:", options)
-        print("Dividends:", dividends)
-        print("Splits:", splits)
-        # print("Current Quote:", current_quote)
-        # print("Shares:", shares)
-
-        print("News:", news)
-        print("Earnings:", earnings)
-        print("Quarterly Earnings:", quarterly_earnings)
-
-        folder_path = stock_symbol
-        os.makedirs(folder_path, exist_ok=True)
-
-        # Save data to CSV or Parquet
-        # Save historical market data to CSV
-        historical_data.to_csv(os.path.join(folder_path, f"{stock_symbol}_historical_data.csv"))
-        print(f"Historical data saved to {stock_symbol}_historical_data.csv")
-
-        # Save financials to CSV
-        financials.to_csv(os.path.join(folder_path, f"{stock_symbol}_financials.csv"))
-        print(f"Financials data saved to {stock_symbol}_financials.csv")
-
-        # Save quarterly financials to CSV
-        quarterly_financials.to_csv(os.path.join(folder_path, f"{stock_symbol}_quarterly_financials.csv"))
-        print(f"Quarterly financials data saved to {stock_symbol}_quarterly_financials.csv")
-
-        # Save balance sheet to CSV
-        balance_sheet.to_csv(os.path.join(folder_path, f"{stock_symbol}_balance_sheet.csv"))
-        print(f"Balance sheet data saved to {stock_symbol}_balance_sheet.csv")
-
-        # Save cashflow to CSV
-        cashflow.to_csv(os.path.join(folder_path, f"{stock_symbol}_cashflow.csv"))
-        print(f"Cashflow data saved to {stock_symbol}_cashflow.csv")
-
-        # Optionally save other DataFrames if they are not empty
-        if isinstance(dividends, pd.Series):
-            dividends.to_csv(os.path.join(folder_path, f"{stock_symbol}_dividends.csv"))
-            print(f"Dividends data saved to {stock_symbol}_dividends.csv")
-
-        if isinstance(splits, pd.Series):
-            splits.to_csv(os.path.join(folder_path, f"{stock_symbol}_splits.csv"))
-            print(f"Splits data saved to {stock_symbol}_splits.csv")
-
-        return response_json
+        except Exception as e:
+            print(f"Error processing stock data: {e}")
+            return {"error": str(e)}

@@ -23,15 +23,47 @@ class StatisticsService:
         y_pred = model.predict(X_test)
         temp_model_min = np.min(y_pred, axis=0)
         temp_model_max = np.max(y_pred, axis=0)
+        print(f"Model min: {temp_model_min}")
+        print(f"Model max: {temp_model_max}")
+
+        print(f"y_pred_shape 0: {y_pred.shape[0]}")
+        print(f"y_test_shape 0: {y_test.shape[0]}")
+        print(f"X_test_shape 0: {X_test.shape[0]}")
+        print(f"y_pred_shape 1: {y_pred.shape[1]}")
+        print(f"y_test_shape 1: {y_test.shape[1]}")
+        print(f"X_test_shape 1: {X_test.shape[1]}")
+
         for col_index in range(y_test.shape[1]):
             for metric_index, metric_function in enumerate(self.metrics_array):
                 metric_value = metric_function(y_test[:, col_index], y_pred[:, col_index])
                 cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
-        return temp_model_max, temp_model_min, cv_scores, y_pred
+        return cv_scores, y_pred
+
+    def create_stats_of_sequential_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores):
+        # TODO check if metrics are reshaped
+        y_pred = model.predict(X_test)
+        temp_model_min = np.min(y_pred, axis=0)
+        temp_model_max = np.max(y_pred, axis=0)
+        print(f"Model min: {temp_model_min}")
+        print(f"Model max: {temp_model_max}")
+
+        print(f"[create_stats_of_sequential_model] y_pred_shape 0: {y_pred.shape[0]}")
+        print(f"[create_stats_of_sequential_model] y_test_shape 0: {y_test.shape[0]}")
+        print(f"[create_stats_of_sequential_model] X_test_shape 0: {X_test.shape[0]}")
+        print(f"[create_stats_of_sequential_model] y_pred_shape 1: {y_pred.shape[1]}")
+        print(f"[create_stats_of_sequential_model] y_test_shape 1: {y_test.shape[1]}")
+        print(f"[create_stats_of_sequential_model] X_test_shape 1: {X_test.shape[1]}")
+
+        for col_index in range(y_test.shape[1]):
+            for metric_index, metric_function in enumerate(self.metrics_array):
+                metric_value = metric_function(y_test[:, col_index], y_pred[:, col_index])
+                cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
+        return cv_scores, y_pred
 
     def save_stats_to_excel(self, X_test, X_train, current_model_name_key, current_value_index, model_index, stock_symbol, y_pred, y_test, y_train, cv_scores):
-        folder_path = "stats"
+        folder_path = os.path.join("data_files", stock_symbol, "stats")
         os.makedirs(folder_path, exist_ok=True)
+
         results_df, train_results_df = self.create_dataframes_for_excel(X_test, X_train, y_pred, y_test, y_train)
 
         column_names = ["Open", "High", "Low", "Close"]
@@ -52,13 +84,12 @@ class StatisticsService:
 
         num_blank_columns = 4
         blank_columns = pd.DataFrame([[None] * num_blank_columns] * len(results_df), columns=[""] * num_blank_columns)
-
         metrics_df = pd.DataFrame(metrics_data)
         results_with_metrics_df = pd.concat([results_df, blank_columns, metrics_df], axis=1)
-
         fold_folder = os.path.join(folder_path, f"fold_{current_value_index}")
         os.makedirs(fold_folder, exist_ok=True)
         excel_file = os.path.join(fold_folder, f"model_results_{stock_symbol}_{current_model_name_key}_fold_{current_value_index}.xlsx")
+
         with pd.ExcelWriter(excel_file) as writer:
             results_with_metrics_df.to_excel(writer, sheet_name='Test Data', index=False)
             train_results_df.to_excel(writer, sheet_name='Train Data', index=False)
@@ -76,37 +107,6 @@ class StatisticsService:
                     print(f"    Column {col_index}: mean = {mean_value:.10f}, std = {std_value:.10f}")
             print()
 
-    def create_dataframes_for_excel_3(self, X_test, X_train, y_pred, y_test, y_train):
-        results_df = pd.DataFrame({
-            'Day': X_test[:, 1],
-            'Month': X_test[:, 2],
-            'Year': X_test[:, 3],
-            'Hour': X_test[:, 4],
-            'y_test_Open': y_test[:, 0],
-            'y_test_High': y_test[:, 1],
-            'y_test_Low': y_test[:, 2],
-            'y_test_Close': y_test[:, 3],
-            # 'y_test_Volume': y_test[:, 4],
-            'y_pred_Open': y_pred[:, 0],
-            'y_pred_High': y_pred[:, 1],
-            'y_pred_Low': y_pred[:, 2],
-            'y_pred_Close': y_pred[:, 3],
-            # 'y_pred_Volume': y_pred[:, 4],
-        })
-
-        train_results_df = pd.DataFrame({
-            'Day_train': X_train[:, 1],
-            'Month_train': X_train[:, 2],
-            'Year_train': X_train[:, 3],
-            'Hour_train': X_train[:, 4],
-            'y_train_open': y_train[:, 0],
-            'y_train_high': y_train[:, 1],
-            'y_train_low': y_train[:, 2],
-            'y_train_close': y_train[:, 3],
-            # 'y_train_volume': y_train[:, 4],
-        })
-        return results_df, train_results_df
-
     def create_dataframes_for_excel(self, X_test, X_train, y_pred, y_test, y_train):
         results_df = pd.DataFrame({
             'Day': X_test[:, 6],
@@ -117,12 +117,10 @@ class StatisticsService:
             'y_test_High': y_test[:, 1],
             'y_test_Low': y_test[:, 2],
             'y_test_Close': y_test[:, 3],
-            # 'y_test_Volume': y_test[:, 4],
             'y_pred_Open': y_pred[:, 0],
             'y_pred_High': y_pred[:, 1],
             'y_pred_Low': y_pred[:, 2],
             'y_pred_Close': y_pred[:, 3],
-            # 'y_pred_Volume': y_pred[:, 4],
         })
         train_results_df = pd.DataFrame({
             'Day_train': X_train[:, 6],
@@ -134,12 +132,10 @@ class StatisticsService:
             'X_train_high': X_train[:, 2],
             'X_train_low': X_train[:, 3],
             'X_train_close': X_train[:, 4],
-            # 'X_train_volume': X_train[:, 5],
             'y_train_open': y_train[:, 0],
             'y_train_high': y_train[:, 1],
             'y_train_low': y_train[:, 2],
             'y_train_close': y_train[:, 3],
-            # 'y_train_volume': y_train[:, 4],
         })
         return results_df, train_results_df
 
@@ -177,3 +173,34 @@ class StatisticsService:
             current_row += 80
         wb.save(excel_file)
         print(f"Results and charts saved to {excel_file}")
+
+    def create_dataframes_for_excel_test(self, X_test, X_train, y_pred, y_test, y_train):
+        results_df = pd.DataFrame({
+            'Day': X_test[:, 1],
+            'Month': X_test[:, 2],
+            'Year': X_test[:, 3],
+            'Hour': X_test[:, 4],
+            'y_test_Open': y_test[:, 0],
+            'y_test_High': y_test[:, 1],
+            'y_test_Low': y_test[:, 2],
+            'y_test_Close': y_test[:, 3],
+            # 'y_test_Volume': y_test[:, 4],
+            'y_pred_Open': y_pred[:, 0],
+            'y_pred_High': y_pred[:, 1],
+            'y_pred_Low': y_pred[:, 2],
+            'y_pred_Close': y_pred[:, 3],
+            # 'y_pred_Volume': y_pred[:, 4],
+        })
+
+        train_results_df = pd.DataFrame({
+            'Day_train': X_train[:, 1],
+            'Month_train': X_train[:, 2],
+            'Year_train': X_train[:, 3],
+            'Hour_train': X_train[:, 4],
+            'y_train_open': y_train[:, 0],
+            'y_train_high': y_train[:, 1],
+            'y_train_low': y_train[:, 2],
+            'y_train_close': y_train[:, 3],
+            # 'y_train_volume': y_train[:, 4],
+        })
+        return results_df, train_results_df

@@ -5,8 +5,9 @@ from tensorflow.keras.models import Sequential
 AVAILABLE_MODELS_NAMES = [
     "DecisionTreeRegressor",
     "RandomForestRegressor"
+    ,
+    "LSTM"
     # ,
-    # "LSTM",
     # "GRU",
     # "Bi-Direct"
 ]
@@ -14,8 +15,9 @@ AVAILABLE_MODELS_NAMES = [
 AVAILABLE_MODELS = [
     DecisionTreeRegressor(),
     RandomForestRegressor()
+    ,
+    Sequential()
     # ,
-    # Sequential(),
     # Sequential(),
     # Sequential()
 ]

@@ -42,7 +42,7 @@ class ModelLearningService:
         scaler_X = MinMaxScaler()
         scaler_y = MinMaxScaler()
 
-        # TODO bug tutaj z tym ccalowaniem
+        # TODO tutaj z tym ccalowaniem
         X_scaled = scaler_X.fit_transform(X)
         y_scaled = scaler_y.fit_transform(y)
         assert X_scaled.shape[0] == y_scaled.shape[0], "Mismatch in X_scaled and y_scaled rows!"
@@ -89,29 +89,23 @@ class ModelLearningService:
                     assert len(X_test_seq) == len(y_test_seq), "Mismatch in X_train_seq and y_train_seq lengths!"
 
                     model.fit(X_train_seq, y_train_seq, validation_data=(X_test_seq, y_test_seq), epochs=50, batch_size=32) #TODO sprawdzic tez bez validation_data performance
-
                     learned_models[current_model_name_key] = seq_model
 
-                    aligned_y_test = y_test[test_indices]
-                    cv_scores, y_pred_scaled = self.statistics_service.create_stats_of_sequential_model(
-                        X_test_seq, learned_models[current_model_name_key], model_index, y_test_seq, current_value_index, cv_scores)
+                    cv_scores, y_pred, aligned_y_test_original = self.statistics_service.create_stats_of_sequential_model(
+                        X_test_seq, learned_models[current_model_name_key], model_index, y_test_seq, current_value_index, cv_scores, scaler_y)
 
-                    y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 4))
+                    aligned_y_test = y_test[test_indices]
                     aligned_y_test_original = scaler_y.inverse_transform(aligned_y_test.reshape(-1, 4))
 
                     y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, 4))
 
                     print(f"Y_train {y_train_inverse}")
-                    print(f"Y_pred {y_pred}")
-                    print(f"aligned_y_test_original {aligned_y_test_original}")
-
                     X_test_unscaled = scaler_X.inverse_transform(X_test[test_indices])
                     X_train_unscaled = scaler_X.inverse_transform(X_train)
-                    # TODO add proper saving path
+
                     excel_file, fold_folder, results_df = self.statistics_service.save_stats_to_excel(
                         X_test_unscaled, X_train_unscaled, current_model_name_key, current_value_index, model_index,
-                        stock_symbol, y_pred, aligned_y_test_original, y_train_inverse, cv_scores
-                    )
+                        stock_symbol, y_pred, aligned_y_test_original, y_train_inverse, cv_scores)
 
                     print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
                     print(f"X_train_seq shape: {X_train_seq.shape}, y_train_seq shape: {y_train_seq.shape}")
@@ -122,20 +116,30 @@ class ModelLearningService:
                 end_time = time.time()
                 elapsed_time = end_time - start_time
             else:
-                for train_index, test_index in tscv.split(X, y): #TODO dodać tutaj scalowane wartości i potem je odscalować???
-                    X_train, X_test = X[train_index], X[test_index]
-                    y_train, y_test = y[train_index], y[test_index]
+                for train_index, test_index in tscv.split(X_scaled, y_scaled): #TODO dodać tutaj scalowane wartości i potem je odscalować???
+                    X_train, X_test = X_scaled[train_index], X_scaled[test_index]
+                    y_train, y_test = y_scaled[train_index], y_scaled[test_index]
+                    assert len(X_train) == len(y_train), "Mismatch in training set lengths!"
+                    assert len(X_test) == len(y_test), "Mismatch in testing set lengths!"
 
                     model.fit(X_train, y_train)
                     learned_models[current_model_name_key] = model
 
-                    cv_scores, y_pred = self.statistics_service.create_stats_of_model(X_test, learned_models[current_model_name_key], model_index, y_test, current_value_index, cv_scores)
-                    excel_file, fold_folder, results_df = self.statistics_service.save_stats_to_excel(X_test, X_train, current_model_name_key, current_value_index, model_index, stock_symbol, y_pred, y_test, y_train, cv_scores)
+                    cv_scores, y_pred, aligned_y_test_original = self.statistics_service.create_stats_of_model(
+                        X_test, learned_models[current_model_name_key], model_index, y_test, current_value_index, cv_scores, scaler_y)
+
+                    y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, 4))
+
+                    print(f"Y_train {y_train_inverse}")
+                    X_test_unscaled = scaler_X.inverse_transform(X_test)
+                    X_train_unscaled = scaler_X.inverse_transform(X_train)
+
+                    excel_file, fold_folder, results_df = self.statistics_service.save_stats_to_excel(
+                        X_test_unscaled, X_train_unscaled, current_model_name_key, current_value_index, model_index,
+                        stock_symbol, y_pred, aligned_y_test_original, y_train_inverse, cv_scores)
 
                     print(f"Results saved to model_results_{stock_symbol}_{current_model_name_key}_fold_{current_value_index}.xlsx")
-
                     self.statistics_service.save_chart_to_excel_file(current_model_name_key, current_value_index, excel_file, fold_folder, results_df, stock_symbol)
-
                     current_value_index += 1
                 end_time = time.time()
                 elapsed_time = end_time - start_time

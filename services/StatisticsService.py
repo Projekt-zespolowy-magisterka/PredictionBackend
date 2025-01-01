@@ -19,46 +19,62 @@ class StatisticsService:
         self.metrics_array = metrics_array
         self.metrics_names = metrics_names
 
-    def create_stats_of_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores):
-        y_pred = model.predict(X_test)
-        temp_model_min = np.min(y_pred, axis=0)
-        temp_model_max = np.max(y_pred, axis=0)
+    def create_stats_of_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores, scaler_y):
+        y_pred_scaled = model.predict(X_test)
+        temp_model_min = np.min(y_pred_scaled, axis=0)
+        temp_model_max = np.max(y_pred_scaled, axis=0)
         print(f"Model min: {temp_model_min}")
         print(f"Model max: {temp_model_max}")
 
-        print(f"y_pred_shape 0: {y_pred.shape[0]}")
+        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 4))
+        aligned_y_test_original = scaler_y.inverse_transform(y_test)
+
+        print(f"Y_pred {y_pred}")
+        print(f"aligned_y_test_original {aligned_y_test_original}")
+
+        print(f"y_pred_shape 0: {y_pred_scaled.shape[0]}")
         print(f"y_test_shape 0: {y_test.shape[0]}")
         print(f"X_test_shape 0: {X_test.shape[0]}")
-        print(f"y_pred_shape 1: {y_pred.shape[1]}")
+        print(f"y_pred_shape 1: {y_pred_scaled.shape[1]}")
         print(f"y_test_shape 1: {y_test.shape[1]}")
         print(f"X_test_shape 1: {X_test.shape[1]}")
 
-        for col_index in range(y_test.shape[1]):
+        for col_index in range(aligned_y_test_original.shape[1]):
             for metric_index, metric_function in enumerate(self.metrics_array):
-                metric_value = metric_function(y_test[:, col_index], y_pred[:, col_index])
-                cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
-        return cv_scores, y_pred
+                if metric_index != 2:
+                    metric_value = metric_function(aligned_y_test_original[:, col_index], y_pred[:, col_index])
+                    cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
+                else:
+                    metric_value = metric_function(y_test[:, col_index], y_pred_scaled[:, col_index])
+                    cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
+        return cv_scores, y_pred, aligned_y_test_original
 
-    def create_stats_of_sequential_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores):
+    def create_stats_of_sequential_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores, scaler_y):
         # TODO check if metrics are reshaped
-        y_pred = model.predict(X_test)
-        temp_model_min = np.min(y_pred, axis=0)
-        temp_model_max = np.max(y_pred, axis=0)
+        y_pred_scaled = model.predict(X_test)
+        temp_model_min = np.min(y_pred_scaled, axis=0)
+        temp_model_max = np.max(y_pred_scaled, axis=0)
         print(f"Model min: {temp_model_min}")
         print(f"Model max: {temp_model_max}")
 
-        print(f"[create_stats_of_sequential_model] y_pred_shape 0: {y_pred.shape[0]}")
+        y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 4))
+        aligned_y_test_original = scaler_y.inverse_transform(y_test)
+
+        print(f"Y_pred {y_pred}")
+        print(f"aligned_y_test_original {aligned_y_test_original}")
+
+        print(f"[create_stats_of_sequential_model] y_pred_shape 0: {y_pred_scaled.shape[0]}")
         print(f"[create_stats_of_sequential_model] y_test_shape 0: {y_test.shape[0]}")
         print(f"[create_stats_of_sequential_model] X_test_shape 0: {X_test.shape[0]}")
-        print(f"[create_stats_of_sequential_model] y_pred_shape 1: {y_pred.shape[1]}")
+        print(f"[create_stats_of_sequential_model] y_pred_shape 1: {y_pred_scaled.shape[1]}")
         print(f"[create_stats_of_sequential_model] y_test_shape 1: {y_test.shape[1]}")
         print(f"[create_stats_of_sequential_model] X_test_shape 1: {X_test.shape[1]}")
 
-        for col_index in range(y_test.shape[1]):
+        for col_index in range(aligned_y_test_original.shape[1]):
             for metric_index, metric_function in enumerate(self.metrics_array):
-                metric_value = metric_function(y_test[:, col_index], y_pred[:, col_index])
+                metric_value = metric_function(aligned_y_test_original[:, col_index], y_pred[:, col_index])
                 cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
-        return cv_scores, y_pred
+        return cv_scores, y_pred, aligned_y_test_original
 
     def save_stats_to_excel(self, X_test, X_train, current_model_name_key, current_value_index, model_index, stock_symbol, y_pred, y_test, y_train, cv_scores):
         folder_path = os.path.join("data_files", stock_symbol, "stats")
@@ -127,11 +143,12 @@ class StatisticsService:
             'Month_train': X_train[:, 7],
             'Year_train': X_train[:, 8],
             'Hour_train': X_train[:, 9],
-            'X_train_return': X_train[:, 0],
-            'X_train_open': X_train[:, 1],
-            'X_train_high': X_train[:, 2],
-            'X_train_low': X_train[:, 3],
-            'X_train_close': X_train[:, 4],
+            'X_train_open': X_train[:, 0],
+            'X_train_high': X_train[:, 1],
+            'X_train_low': X_train[:, 2],
+            'X_train_close': X_train[:, 3],
+            'X_train_volume': X_train[:, 4],
+            'X_train_return': X_train[:, 5],
             'y_train_open': y_train[:, 0],
             'y_train_high': y_train[:, 1],
             'y_train_low': y_train[:, 2],

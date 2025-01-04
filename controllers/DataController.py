@@ -84,6 +84,17 @@ def convert_stock_parquet_to_csv(stock_symbol):
         return jsonify({'error': str(e)}), 500
 
 
+@data_controller_blueprint.route('/predictor/data/analyze/<string:stock_symbol>', methods=['GET'])
+def get_data_analyze(stock_symbol):
+    try:
+        interval, period = validate_request(stock_symbol)
+        data_service.analyze_data(stock_symbol, interval, period)
+
+        return jsonify({'status': 'success', 'message': 'Analysis completed successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @data_controller_blueprint.route('/predictor/data/ticker/<string:stock_symbol>', methods=['GET'])
 def get_stock_ticker(stock_symbol):
     try:

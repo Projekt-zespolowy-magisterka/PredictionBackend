@@ -23,6 +23,7 @@ class FileModelRepository:
         data.to_csv(file_path, index=True)
         print(f"Data saved to CSV at {file_path}")
 
+    # TODO change saving methods here and how stock dir is got
     def save_to_parquet(self, data, stock_symbol, interval, period):
         stock_dir = self.get_stock_dir(stock_symbol)
         file_path = os.path.join(stock_dir,
@@ -32,8 +33,7 @@ class FileModelRepository:
 
     def load_csv(self, stock_symbol, interval, period):
         stock_dir = self.get_stock_dir(stock_symbol)
-        file_path = os.path.join(stock_dir,
-                                 self.generate_filename(stock_symbol, interval, period, self.CSV_FILE_EXTENSION))
+        file_path = os.path.join(stock_dir, self.generate_filename(stock_symbol, interval, period, self.CSV_FILE_EXTENSION))
         if not os.path.exists(file_path):
             print(f"File does not exist: {file_path}")
             return None
@@ -46,8 +46,7 @@ class FileModelRepository:
 
     def load_parquet(self, stock_symbol, interval, period):
         stock_dir = self.get_stock_dir(stock_symbol)
-        file_path = os.path.join(stock_dir,
-                                 self.generate_filename(stock_symbol, interval, period, self.PARQUET_FILE_EXTENSION))
+        file_path = os.path.join(stock_dir, self.generate_filename(stock_symbol, interval, period, self.PARQUET_FILE_EXTENSION))
         if not os.path.exists(file_path):
             print(f"File does not exist: {file_path}")
             return None

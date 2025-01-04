@@ -93,6 +93,70 @@ class StockService:
         with open(filepath, 'r') as file:
             return sum(1 for _ in file) - 1
 
+    def get_score(self, symbol) -> pd.DataFrame:
+        """Calculate scores from financial ratios."""
+        def __normalize_and_score(row, ratio, min_val, max_val, weight):
+            value = row.get(ratio)
+            if value is None:
+                return 0
+            normalized = (value - min_val) / (max_val - min_val)
+            normalized = max(0, min(1, normalized))
+            return normalized * weight
+        
+        def __calculate_allocation(score):
+            min_val = 0.55
+            max_val = 1
+            buy_percentage = max(0, min(1, (score - min_val) / (max_val - min_val)))
+
+            hold_percentage = max(0, min(1, (0.7 - abs(score - 0.55) * 2) / 0.7))
+
+            min_val = 0
+            max_val = 0.55
+            sell_percentage = 1 - max(0, min(1, (score - min_val) / (max_val - min_val)))
+            return buy_percentage * 100 , hold_percentage * 100, sell_percentage * 100
+
+        try:
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            financial_ratios = {
+                "Ticker": symbol,
+                "P/E": info.get("trailingPE", None),
+                "ROE": info.get("returnOnEquity", None),
+                "Debt-to-Equity": info.get("debtToEquity", None),
+                "Current Ratio": info.get("currentRatio", None),
+            }
+            df = pd.DataFrame([financial_ratios])
+
+            weights = {
+                "ROE": 0.3,
+                "P/E": 0.3,
+                "Current Ratio": 0.2,
+                "Debt-to-Equity": 0.2,
+            }
+
+            benchmarks = {
+                "ROE": {"min": 0.05, "max": 0.20},
+                "P/E": {"min": 10, "max": 25},
+                "Current Ratio": {"min": 1, "max": 3},
+                "Debt-to-Equity": {"min": 0, "max": 2},
+            }
+            
+            df["Score"] = df.apply(
+                lambda row: sum(
+                    __normalize_and_score(row, ratio, benchmarks[ratio]["min"], benchmarks[ratio]["max"], weights[ratio])
+                    for ratio in weights.keys()
+                ),
+                axis=1
+            )
+            df[["buy", "hold", "sell"]] = df["Score"].apply(
+                lambda score: pd.Series(__calculate_allocation(score))
+            )
+            return df
+
+        except Exception as e:
+            print(f"Error fetching data for {symbol}: {e}")
+            return {}
+
     def get_stock_info(self, symbol: str) -> Dict:
         """Fetch and return stock data in the required JSON format."""
         try:
@@ -102,6 +166,8 @@ class StockService:
 
             adj_close = data['Adj Close']
             change_1m = _calculate_change(adj_close, 30)
+            
+            score = self.get_score(symbol)
 
             chart_data = []
             for index, row in data.iterrows():
@@ -123,8 +189,7 @@ class StockService:
                     "percentage": change_1m,
                 },
                 "scores": [
-                    {"label": "Score 1", "buy": 75, "hold": 20, "sell": 5},
-                    {"label": "Score 2", "buy": 80, "hold": 15, "sell": 5},
+                    {"label": "Recommendation score", "buy": score.get('buy')[0], "hold": score.get('hold')[0], "sell": score.get('sell')[0]},
                 ],
                 "statistics": [
                     {"label": "Market Cap",

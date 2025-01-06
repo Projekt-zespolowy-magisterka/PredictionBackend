@@ -1,5 +1,4 @@
 from repositories.FileModelRepository import FileModelRepository
-from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
 from repositories.RedisModelCacheRepository import RedisModelCacheRepository
 from utilities.dataAnalyser import DataAnalyzer

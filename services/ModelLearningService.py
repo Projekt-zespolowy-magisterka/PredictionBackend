@@ -1,18 +1,17 @@
-from sklearn.model_selection import TimeSeriesSplit
+import time
 import numpy as np
+from sklearn.model_selection import TimeSeriesSplit
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, LSTM, GRU, Bidirectional, Dense, Dropout
 from repositories.FileModelRepository import FileModelRepository
-from pymongo.errors import PyMongoError
 from repositories.MongoDBModelRepository import MongoDBModelRepository
 from repositories.RedisModelCacheRepository import RedisModelCacheRepository
+from app_config.ModelConfig import AVAILABLE_MODELS_NAMES, AVAILABLE_MODELS
 from app_config.StatisticsConfig import metrics_array
 from utilities.dataScaler import DataScaler
 from services.DataService import DataService
 from services.StatisticsService import StatisticsService
-from app_config.ModelConfig import AVAILABLE_MODELS_NAMES, AVAILABLE_MODELS
-import time
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Input, LSTM, GRU, Bidirectional, Dense, Dropout
-from sklearn.preprocessing import MinMaxScaler
 
 
 class ModelLearningService:

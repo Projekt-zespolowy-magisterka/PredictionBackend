@@ -1,7 +1,7 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from utilities.dataScaler import DataScaler
 
 
@@ -97,14 +97,16 @@ class DataAnalyzer:
                 print(f"Scatterplot saved for {column_name} at {output_path}")
 
     def plot_heat_map(self, data, stock_symbol):
-        numeric_data = data.select_dtypes(include=['number'])
+        numeric_data = data.select_dtypes(include='number')
         base_output_dir = os.path.join(self.output_dir, stock_symbol, "analysis", "heatmap")
         os.makedirs(base_output_dir, exist_ok=True)
-        plt.figure(figsize=[20, 10])
+
+        plt.figure(figsize=(20, 10))
         corr = numeric_data.corr()
         sns.heatmap(corr, annot=True, cmap='coolwarm')
         plt.xticks(rotation=45)
         plt.title("Heatmap of Correlation Coefficient", size=12)
+
         output_path = os.path.join(base_output_dir, "heatmap.png")
         plt.savefig(output_path)
         plt.close()

@@ -1,9 +1,5 @@
-import datetime
-import os
-
 from flask import Blueprint, request, jsonify
 from services.DataService import DataService
-import pandas as pd
 
 from services.StockService import StockService
 
@@ -13,7 +9,6 @@ data_service = DataService()
 VALID_INTERVALS = ['1m', '5m', '15m', '1h', '1d', '1wk', '1mo']
 VALID_PERIODS = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max']
 CSV_FILE_PATH = "data_files/valid_tickers.csv"
-
 
 def validate_request(stock_symbol):
     interval = request.args.get('interval', default='1d')
@@ -30,7 +25,6 @@ def validate_request(stock_symbol):
     return interval, period
 
 
-# Route handlers
 @data_controller_blueprint.route('/predictor/data/<string:stock_symbol>', methods=['GET'])
 def get_stock_data(stock_symbol):
     try:
@@ -109,14 +103,12 @@ def get_stock_ticker(stock_symbol):
 @data_controller_blueprint.route('/predictor/data/tickers', methods=['GET'])
 def get_all_stock_tickers():
     try:
-        # Pagination parameters
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 10))
 
         stock_service = StockService()
         filename = "stocks_data.csv"
 
-        # Calculate pagination
         total_records = stock_service.get_total_records(filename)
         total_pages = (total_records + per_page - 1) // per_page
 
@@ -126,7 +118,6 @@ def get_all_stock_tickers():
         start_idx = (page - 1) * per_page
         end_idx = min(start_idx + per_page, total_records)
 
-        # Load paginated data
         paginated_data = stock_service.load_stock_data_paginated(filename, start_idx, end_idx)
 
         return jsonify({
@@ -147,7 +138,6 @@ def get_all_stock_tickers():
 @data_controller_blueprint.route('/predictor/data/save', methods=['POST'])
 def save_stock_data():
     try:
-        # Fetch and save stock data to CSV
         stock_service = StockService()
         stock_service.fetch_and_save_stock_data_from_validity("data_files/valid_new_tickers.csv", "stocks_data.csv")
 

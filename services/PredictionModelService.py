@@ -1,19 +1,17 @@
-from services.DataService import DataService
-from pymongo.errors import PyMongoError
-from repositories.MongoDBModelRepository import MongoDBModelRepository
-from repositories.RedisModelCacheRepository import RedisModelCacheRepository
-from app_config.ModelConfig import AVAILABLE_MODELS_NAMES
+import numpy as np
 import pandas as pd
-from tensorflow.keras.models import Sequential
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.neural_network import MLPRegressor
 from sklearn.ensemble import RandomForestRegressor
-from utilities.dataScaler import DataScaler
-from hurst import compute_Hc
 from sklearn.preprocessing import MinMaxScaler
-import numpy as np
-
+from tensorflow.keras.models import Sequential
+from hurst import compute_Hc
+from repositories.MongoDBModelRepository import MongoDBModelRepository
+from repositories.RedisModelCacheRepository import RedisModelCacheRepository
+from services.DataService import DataService
+from utilities.dataScaler import DataScaler
+from app_config.ModelConfig import AVAILABLE_MODELS_NAMES
 PREDICTION_BASED_ON_HISTORICAL_DAYS = 1
 
 

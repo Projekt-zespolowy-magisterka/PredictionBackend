@@ -3,13 +3,17 @@ import pickle
 from gridfs import GridFS
 import logging
 from datetime import datetime
+import os
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 class MongoDBModelRepository:
-    def __init__(self, uri="mongodb://localhost:27018", db_name="model_db", collection_name="models"):
+    def __init__(self):
+        uri = os.getenv("MONGO_URI", "mongodb://localhost:27018")
+        db_name = os.getenv("MONGO_DB_NAME", "model_db")
+        collection_name = os.getenv("MONGO_COLLECTION_NAME", "models")
         self.client = MongoClient(uri)
         self.db = self.client[db_name]
         self.collection = self.db[collection_name]

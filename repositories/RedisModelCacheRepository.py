@@ -2,17 +2,20 @@ import redis
 import pickle
 import time
 import tempfile
-import tensorflow as tf
+from tensorflow.keras.models import load_model, Sequential
+import os
 
 
 class RedisModelCacheRepository:
-    def __init__(self, host='localhost', port=6379, db=0):
+    def __init__(self):
+        host = os.getenv('REDIS_HOST', 'localhost')
+        port = int(os.getenv('REDIS_PORT', 6379))
+        db = int(os.getenv('REDIS_DB', 0))
         self.redis_client = redis.StrictRedis(host=host, port=port, db=db)
 
     def cache_model(self, model, model_key):
         try:
-            if isinstance(model, tf.keras.Sequential):
-                # Save model to temporary directory
+            if isinstance(model, Sequential):
                 with tempfile.TemporaryDirectory() as temp_dir:
                     model_path = f"{temp_dir}/{model_key}.h5"
                     model.save(model_path)
@@ -20,7 +23,6 @@ class RedisModelCacheRepository:
                         model_data = f.read()
                     self.redis_client.set(model_key, model_data)
             else:
-                # Serialize using pickle for non-TensorFlow models
                 model_data = pickle.dumps(model)
                 self.redis_client.set(model_key, model_data)
 
@@ -38,7 +40,7 @@ class RedisModelCacheRepository:
                         model_path = f"{temp_dir}/{model_key}.h5"
                         with open(model_path, "wb") as f:
                             f.write(model_data)
-                        model = tf.keras.models.load_model(model_path)
+                        model = load_model(model_path)
                 else:
                     model = pickle.loads(model_data)
                 cached_at = self.redis_client.get(f"{model_key}_cached_at")

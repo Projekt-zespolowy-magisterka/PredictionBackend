@@ -1,15 +1,14 @@
-from openpyxl import Workbook, load_workbook
-from openpyxl.drawing.image import Image
-import matplotlib.pyplot as plt
-import matplotlib
-import matplotlib.ticker as ticker
-import pandas as pd
 import os
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from openpyxl import load_workbook
+from openpyxl.drawing.image import Image
 from app_config.ModelConfig import AVAILABLE_MODELS_NAMES, AVAILABLE_MODELS
 from app_config.StatisticsConfig import metrics_array, metrics_names
 
-matplotlib.use('Agg')
+plt.switch_backend('Agg')
 
 
 class StatisticsService:

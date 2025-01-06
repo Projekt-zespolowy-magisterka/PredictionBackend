@@ -1,9 +1,8 @@
-import datetime
 import os
 import csv
-import yfinance as yf
-import pandas as pd
 from typing import List, Dict
+import pandas as pd
+import yfinance as yf
 
 def _calculate_change(adj_close: pd.Series, days: int) -> float:
     """Calculate percentage change in adjusted close price over a specified period."""
@@ -93,7 +92,7 @@ class StockService:
         with open(filepath, 'r') as file:
             return sum(1 for _ in file) - 1
 
-    def get_score(self, symbol) -> pd.DataFrame:
+    def get_score(self, symbol, ticker) -> pd.DataFrame:
         """Calculate scores from financial ratios."""
         def __normalize_and_score(row, ratio, min_val, max_val, weight):
             value = row.get(ratio)
@@ -116,7 +115,6 @@ class StockService:
             return buy_percentage * 100 , hold_percentage * 100, sell_percentage * 100
 
         try:
-            ticker = yf.Ticker(symbol)
             info = ticker.info
             financial_ratios = {
                 "Ticker": symbol,
@@ -162,34 +160,59 @@ class StockService:
         try:
             ticker = yf.Ticker(symbol)
             stock_info = ticker.info
+            print(f"Ticker: {stock_info}")
+
             data = yf.download(symbol, period="1y", interval="1h", actions=True, prepost=True, threads=True)
 
-            adj_close = data['Adj Close']
+            if 'Adj Close' in data.columns:
+                adj_close = data['Adj Close']
+            elif 'Close' in data.columns:
+                adj_close = data['Close']
+            else:
+                raise ValueError(f"Neither 'Adj Close' nor 'Close' data is available for symbol {symbol}")
+
+            print(f"ADJ CLOSE (before conversion): {adj_close}")
+
+            adj_close = adj_close.map(self.safe_get_value)
+            adj_close = adj_close.squeeze()
+            print(f"ADJ CLOSE (after conversion): {adj_close}")
+
             change_1m = _calculate_change(adj_close, 30)
-            
-            score = self.get_score(symbol)
+
+            score_df = self.get_score(symbol, ticker)
+            if isinstance(score_df, pd.DataFrame) and not score_df.empty:
+                try:
+                    score = score_df.iloc[0]
+                    buy = float(score["buy"])
+                    hold = float(score["hold"])
+                    sell = float(score["sell"])
+                except KeyError as e:
+                    print(f"Key error in score_df: {e}")
+                    buy, hold, sell = None, None, None
+            else:
+                buy, hold, sell = None, None, None
 
             chart_data = []
             for index, row in data.iterrows():
                 chart_data.append({
                     "date": index.strftime("%Y-%m-%d %H:%M:%S"),
-                    "open": row['Open'],
-                    "high": row['High'],
-                    "low": row['Low'],
-                    "close": row['Close'],
-                    "volume": row['Volume']
+                    "open": self.safe_get_value(row['Open']),
+                    "high": self.safe_get_value(row['High']),
+                    "low": self.safe_get_value(row['Low']),
+                    "close": self.safe_get_value(row['Close']),
+                    "volume": self.safe_get_value(row['Volume'])
                 })
 
             stock_data = {
                 "symbol": symbol,
-                "name": stock_info.get("shortName", "N/A"),
-                "currentPrice": adj_close.iloc[-1] if not adj_close.empty else None,
+                "name": stock_info.get("shortName", "N/A").item() if isinstance(stock_info.get("shortName", "N/A"), pd.Series) else stock_info.get("shortName", "N/A"),
+                "currentPrice": float(adj_close.iloc[-1]) if not adj_close.empty else None,
                 "change": {
-                    "absolute": round(adj_close.iloc[-1] - adj_close.iloc[-30], 2) if not adj_close.empty else None,
+                    "absolute": float(adj_close.iloc[-1] - adj_close.iloc[-30]) if len(adj_close) >= 30 else None,
                     "percentage": change_1m,
                 },
                 "scores": [
-                    {"label": "Recommendation score", "buy": score.get('buy')[0], "hold": score.get('hold')[0], "sell": score.get('sell')[0]},
+                    {"label": "Recommendation score", "buy": float(buy), "hold": float(hold), "sell": float(sell)},
                 ],
                 "statistics": [
                     {"label": "Market Cap",
@@ -201,7 +224,7 @@ class StockService:
                      "value": f"{stock_info.get('regularMarketEPS', 'N/A')} USD" if stock_info.get(
                          'regularMarketEPS') else "N/A"},
                     {"label": "Dividend Yield",
-                     "value": f"{stock_info.get('dividendYield', 'N/A') * 100}%" if stock_info.get(
+                     "value": f"{stock_info.get('dividendYield', 'N/A') * 100:.2f}%" if stock_info.get(
                          'dividendYield') else "N/A"},
                     {"label": "52-Week High",
                      "value": f"{stock_info.get('fiftyTwoWeekHigh', 'N/A')} USD" if stock_info.get(
@@ -212,7 +235,6 @@ class StockService:
                 ],
                 "chartData": chart_data
             }
-
             return stock_data
 
         except Exception as e:
@@ -231,3 +253,7 @@ class StockService:
             writer.writeheader()
             writer.writerows(data)
 
+    def safe_get_value(self, value):
+        if isinstance(value, pd.Series):
+            return value.item()
+        return value

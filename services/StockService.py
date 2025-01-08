@@ -4,15 +4,10 @@ from typing import List, Dict
 import pandas as pd
 import yfinance as yf
 
-def _calculate_change(adj_close: pd.Series, days: int) -> float:
-    """Calculate percentage change in adjusted close price over a specified period."""
-    try:
-        if len(adj_close) >= days:
-            return round(((adj_close.iloc[-1] - adj_close.iloc[-days]) / adj_close.iloc[-days] * 100), 2)
-    except Exception as e:
-        print(f"Error calculating change over {days} days: {e}")
+def _calculate_change(adj_close, days):
+    if len(adj_close) >= days:
+        return round(((adj_close.iloc[-1] - adj_close.iloc[-days]) / adj_close.iloc[-days]) * 100, 2)
     return None
-
 
 class StockService:
     def __init__(self, data_directory: str = "data"):
@@ -30,31 +25,35 @@ class StockService:
         data_list = []
         for stock_symbol in stock_symbols:
             try:
-                data = yf.download(stock_symbol, period="5y", interval="1d", actions=True, prepost=True, threads=True)
+                data = yf.download(stock_symbol, period="2y", interval="1d", actions=True, prepost=True, threads=True)
                 ticker = yf.Ticker(stock_symbol)
                 stock_info = ticker.info
+                adj_close = data.get('Adj Close') or data.get('Close')
+                if adj_close is None or adj_close.empty:
+                    raise ValueError(f"Neither 'Adj Close' nor 'Close' data is available for symbol {stock_symbol}")
 
-                adj_close = data['Adj Close']
                 change_1m = _calculate_change(adj_close, 30)
                 change_3m = _calculate_change(adj_close, 90)
                 change_6m = _calculate_change(adj_close, 180)
                 change_1y = _calculate_change(adj_close, 252)
-                change_3y = _calculate_change(adj_close, 1095)
 
-                name = stock_info.get("shortName", "N/A")
-                if name != "N/A":
-                    data_list.append({
-                        "symbol": stock_symbol,
-                        "name": name,
-                        "price": adj_close.iloc[-1] if not adj_close.empty else None,
-                        "peRatio": stock_info.get("trailingPE", "N/A"),
-                        "volume": int(data['Volume'].iloc[-1]) if not data['Volume'].empty else None,
-                        "change1M": change_1m,
-                        "change3M": change_3m,
-                        "change6M": change_6m,
-                        "change1Y": change_1y,
-                        "change3Y": change_3y
-                    })
+                data_list.append({
+                    "symbol": stock_symbol,
+                    "name": stock_info.get("shortName", "N/A"),
+                    "price": float(round(adj_close.iloc[-1], 2)) if not adj_close.empty else None,
+                    "peRatio": float(round(stock_info.get("trailingPE", "N/A"), 2)) if stock_info.get(
+                        "trailingPE") else None,
+                    "volume": int(data['Volume'].iloc[-1]) if 'Volume' in data.columns and not data[
+                        'Volume'].empty else None,
+                    "change1M": float(change_1m) if change_1m is not None else None,
+                    "change3M": float(change_3m) if change_3m is not None else None,
+                    "change6M": float(change_6m) if change_6m is not None else None,
+                    "change1Y": float(change_1y) if change_1y is not None else None,
+                })
+
+            except Exception as e:
+                print(f"Error fetching data for {stock_symbol}: {e}")
+                continue
 
             except Exception as e:
                 print(f"Error fetching data for {stock_symbol}: {e}")

@@ -164,19 +164,7 @@ class StockService:
 
             data = yf.download(symbol, period="1y", interval="1h", actions=True, prepost=True, threads=True)
 
-            if 'Adj Close' in data.columns:
-                adj_close = data['Adj Close']
-            elif 'Close' in data.columns:
-                adj_close = data['Close']
-            else:
-                raise ValueError(f"Neither 'Adj Close' nor 'Close' data is available for symbol {symbol}")
-
-            print(f"ADJ CLOSE (before conversion): {adj_close}")
-
-            adj_close = adj_close.map(self.safe_get_value)
-            adj_close = adj_close.squeeze()
-            print(f"ADJ CLOSE (after conversion): {adj_close}")
-
+            adj_close = data['Adj Close']
             change_1m = _calculate_change(adj_close, 30)
 
             score_df = self.get_score(symbol, ticker)
@@ -208,7 +196,7 @@ class StockService:
                 "name": stock_info.get("shortName", "N/A").item() if isinstance(stock_info.get("shortName", "N/A"), pd.Series) else stock_info.get("shortName", "N/A"),
                 "currentPrice": float(adj_close.iloc[-1]) if not adj_close.empty else None,
                 "change": {
-                    "absolute": float(adj_close.iloc[-1] - adj_close.iloc[-30]) if len(adj_close) >= 30 else None,
+                    "absolute": round(adj_close.iloc[-1] - adj_close.iloc[-30], 2) if not adj_close.empty else None,
                     "percentage": change_1m,
                 },
                 "scores": [
@@ -224,7 +212,7 @@ class StockService:
                      "value": f"{stock_info.get('regularMarketEPS', 'N/A')} USD" if stock_info.get(
                          'regularMarketEPS') else "N/A"},
                     {"label": "Dividend Yield",
-                     "value": f"{stock_info.get('dividendYield', 'N/A') * 100:.2f}%" if stock_info.get(
+                     "value": f"{stock_info.get('dividendYield', 'N/A') * 100}%" if stock_info.get(
                          'dividendYield') else "N/A"},
                     {"label": "52-Week High",
                      "value": f"{stock_info.get('fiftyTwoWeekHigh', 'N/A')} USD" if stock_info.get(
@@ -235,6 +223,7 @@ class StockService:
                 ],
                 "chartData": chart_data
             }
+
             return stock_data
 
         except Exception as e:

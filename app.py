@@ -38,9 +38,21 @@ logging.basicConfig(
     level=logging.ERROR,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
+
+mainlogger = logging.getLogger()
+mainlogger.setLevel(logging.ERROR)
+mainlogger.addHandler(loki_handler)
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 logger.addHandler(loki_handler)
+
+matplotlib_logger = logging.getLogger('matplotlib')
+matplotlib_logger.setLevel(logging.WARNING)
+matplotlib_logger.addHandler(loki_handler)
+
+pillow_logger = logging.getLogger('PIL')
+pillow_logger.setLevel(logging.WARNING)
 
 mongologger = logging.getLogger('pymongo')
 mongologger.setLevel(logging.ERROR)

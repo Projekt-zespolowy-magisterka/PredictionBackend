@@ -116,7 +116,10 @@ class PredictionModelService:
         predictions_df = pd.DataFrame(results)
         predictions_df.set_index('Timestamp', inplace=True)
         self.data_service.save_predictions_to_csv(predictions_df, stock_symbol, interval, period)
-        return "OK"
+        filtered_results = [result for result in results if result["Model"] == "LSTM"]
+
+        return filtered_results
+
 
     def append_prediction_results(self, model_name, prediction, predictions):
         predictions[model_name]['Open'].append(prediction[0])

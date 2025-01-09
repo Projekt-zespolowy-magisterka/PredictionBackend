@@ -31,40 +31,44 @@ loki_handler = logging_loki.LokiHandler(
     tags={"application": "prediction-mc"},
     version="1"
 )
-loki_handler.setLevel(logging.DEBUG)
+loki_handler.setLevel(logging.ERROR)
 loki_handler.propagate = False
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.ERROR,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
 logger.addHandler(loki_handler)
 
+mongologger = logging.getLogger('pymongo')
+mongologger.setLevel(logging.ERROR)
+mongologger.addHandler(loki_handler)
 
 def on_starting(server):
     gunicorn_error_logger = logging.getLogger("gunicorn.error")
     gunicorn_error_logger.addHandler(loki_handler)
-    gunicorn_error_logger.setLevel(logging.DEBUG)
+    gunicorn_error_logger.setLevel(logging.ERROR)
 
     gunicorn_access_logger = logging.getLogger("gunicorn.access")
     gunicorn_access_logger.addHandler(loki_handler)
-    gunicorn_access_logger.setLevel(logging.DEBUG)
+    gunicorn_access_logger.setLevel(logging.ERROR)
 
 
 app = Flask(__name__)
 app.register_blueprint(prediction_controller_blueprint)
 app.register_blueprint(data_controller_blueprint)
 app.register_blueprint(test_controller_blueprint)
+app.logger.setLevel(logging.ERROR)
 app.logger.addHandler(loki_handler)
-app.logger.setLevel(logging.DEBUG)
 
 logger.info(f"Loki URL: {loki_url}")
 logger.info(f"handler: {loki_handler}")
 
 werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.setLevel(logging.ERROR)
 werkzeug_logger.addHandler(loki_handler)
-werkzeug_logger.setLevel(logging.DEBUG)
 
 metrics = PrometheusMetrics(app, path='/actuator/prometheus')
 

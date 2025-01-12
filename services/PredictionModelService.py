@@ -26,7 +26,7 @@ class PredictionModelService:
         self.models = {}
         self.scaler_X = MinMaxScaler()
         self.scaler_y = MinMaxScaler()
-        self.trading_hours = (pd.Timestamp("09:30:00-04:00"), pd.Timestamp("16:00:00-04:00"))
+        self.trading_hours = (pd.Timestamp("09:30:00-05:00"), pd.Timestamp("16:00:00-05:00"))
         self.n_timesteps = 10
 
     def load_model(self, model_key):
@@ -78,7 +78,6 @@ class PredictionModelService:
         X_scaled, y_scaled = self.scale_data(X_features.values, y_target.values)
 
         last_input = X_scaled[-self.n_timesteps:]
-        print(f"last_input {last_input}")
 
 
         predictions = {model_name: [] for model_name in self.model_keys}
@@ -86,7 +85,6 @@ class PredictionModelService:
 
         for model_name, model in zip(self.model_keys, self.models.values()):
             input_data = last_input.copy()
-            print(f"input_data old {input_data}")
             for _ in range(hours_ahead):
                 if isinstance(model, Sequential):
                     prediction_scaled = model.predict(input_data.reshape(1, self.n_timesteps, input_data.shape[1]))[0] #TODO do ulepszenia input do takiej predykcji
@@ -94,17 +92,12 @@ class PredictionModelService:
                     prediction_scaled = model.predict(input_data.mean(axis=0).reshape(1, -1))[0]  #TODO do ulepszenia input do takiej predykcji
                     # prediction_scaled = model.predict(input_data[-1].reshape(1, -1))[0]
                 prediction = self.scaler_y.inverse_transform([prediction_scaled])[0]
-                print(f"prediction {prediction}")
                 predictions[model_name].append(prediction)
 
                 new_row = np.zeros((input_data.shape[1],))
-                print(f"new_row before {new_row}")
                 new_row[:len(prediction_scaled)] = prediction_scaled
                 new_row[len(prediction_scaled):] = input_data[-1, len(prediction_scaled):]
-                print(f"new_row after {new_row}")
                 input_data = np.vstack([input_data[1:], new_row])
-
-                print(f"input_data new {input_data}")
 
         results = []
         timestamps = pd.date_range(X_features.index[-1], periods=hours_ahead + 1, freq=interval)[1:]

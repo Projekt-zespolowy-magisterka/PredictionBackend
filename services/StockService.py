@@ -3,6 +3,8 @@ import csv
 from typing import List, Dict
 import pandas as pd
 import yfinance as yf
+from repositories.FileModelRepository import FileModelRepository
+
 
 def _calculate_change(adj_close, days):
     if len(adj_close) >= days:
@@ -11,6 +13,7 @@ def _calculate_change(adj_close, days):
 
 class StockService:
     def __init__(self, data_directory: str = "data"):
+        self.file_repository = FileModelRepository()
         self.data_directory = data_directory
         os.makedirs(self.data_directory, exist_ok=True)
 
@@ -20,23 +23,43 @@ class StockService:
             raise FileNotFoundError(f"File {validity_file} does not exist.")
 
         tickers_df = pd.read_csv(validity_file)
-        stock_symbols = tickers_df["ticker"].dropna().tolist()[:1000]
+        stock_symbols = tickers_df["ticker"].dropna().tolist()[:100]  # Limit to 100 for testing purposes
 
         data_list = []
+
         for stock_symbol in stock_symbols:
             try:
+                print(f"Fetching data for: {stock_symbol}")
+
+                # Fetch historical data for the stock
                 data = yf.download(stock_symbol, period="2y", interval="1d", actions=True, prepost=True, threads=True)
+                if data.empty:
+                    print(f"No historical data found for {stock_symbol}. Skipping...")
+                    continue
+
                 ticker = yf.Ticker(stock_symbol)
                 stock_info = ticker.info
-                adj_close = data.get('Adj Close') or data.get('Close')
-                if adj_close is None or adj_close.empty:
-                    raise ValueError(f"Neither 'Adj Close' nor 'Close' data is available for symbol {stock_symbol}")
 
+                if 'Adj Close' in data:
+                    adj_close = data['Adj Close']
+                elif 'Close' in data:
+                    adj_close = data['Close']
+                else:
+                    print(f"Neither 'Adj Close' nor 'Close' is available for {stock_symbol}. Skipping...")
+                    continue
+
+                # Check if adj_close is empty
+                if adj_close.empty:
+                    print(f"'Adj Close' or 'Close' data is empty for {stock_symbol}. Skipping...")
+                    continue
+
+                # Calculate percentage changes
                 change_1m = _calculate_change(adj_close, 30)
                 change_3m = _calculate_change(adj_close, 90)
                 change_6m = _calculate_change(adj_close, 180)
                 change_1y = _calculate_change(adj_close, 252)
 
+                # Append valid stock data to the list
                 data_list.append({
                     "symbol": stock_symbol,
                     "name": stock_info.get("shortName", "N/A"),
@@ -55,11 +78,11 @@ class StockService:
                 print(f"Error fetching data for {stock_symbol}: {e}")
                 continue
 
-            except Exception as e:
-                print(f"Error fetching data for {stock_symbol}: {e}")
-                continue
-
-        self._save_to_csv(data_list, filename)
+        # Save data to CSV if available
+        if data_list:
+            self._save_to_csv(data_list, filename)
+        else:
+            print("No valid data to save.")
 
     def load_stock_data_paginated(self, filename: str, start_idx: int, end_idx: int) -> pd.DataFrame:
         """Load a paginated portion of stock data from the CSV file."""
@@ -159,7 +182,6 @@ class StockService:
         try:
             ticker = yf.Ticker(symbol)
             stock_info = ticker.info
-            print(f"Ticker: {stock_info}")
 
             data = yf.download(symbol, period="1y", interval="1h", actions=True, prepost=True, threads=True)
 
@@ -230,16 +252,21 @@ class StockService:
             return {}
 
     def _save_to_csv(self, data: List[Dict], filename: str) -> None:
-        """Save stock data to a CSV file."""
+        """Save stock data to a CSV file using pandas."""
         if not data:
             print("No data to save.")
             return
 
         filepath = os.path.join(self.data_directory, filename)
-        with open(filepath, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.DictWriter(file, fieldnames=data[0].keys())
-            writer.writeheader()
-            writer.writerows(data)
+
+        try:
+            df = pd.DataFrame(data)
+            df.to_csv(filepath, index=False, encoding='utf-8')
+
+            print(f"Data successfully saved to {filepath}.")
+        except Exception as e:
+            print(f"Error occurred while saving data: {e}")
+
 
     def safe_get_value(self, value):
         if isinstance(value, pd.Series):

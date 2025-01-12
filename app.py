@@ -16,9 +16,9 @@ import tensorflow as tf
 
 try:
     from tensorflow.python.distribute.cluster_resolver.tpu import TPUClusterResolver
-    TPUClusterResolver = None  # Disable TPU detection explicitly
+    TPUClusterResolver = None
 except ImportError:
-    pass  # Ignore if TPU-related modules are not present
+    pass
 
 tf_logger = logging.getLogger("tensorflow")
 tf_logger.propagate = False
@@ -47,12 +47,14 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 logger.addHandler(loki_handler)
 
+logging.getLogger('yfinance').setLevel(logging.ERROR)
+
 matplotlib_logger = logging.getLogger('matplotlib')
-matplotlib_logger.setLevel(logging.WARNING)
+matplotlib_logger.setLevel(logging.ERROR)
 matplotlib_logger.addHandler(loki_handler)
 
 pillow_logger = logging.getLogger('PIL')
-pillow_logger.setLevel(logging.WARNING)
+pillow_logger.setLevel(logging.ERROR)
 
 mongologger = logging.getLogger('pymongo')
 mongologger.setLevel(logging.ERROR)

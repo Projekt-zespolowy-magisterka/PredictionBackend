@@ -1,0 +1,94 @@
+symbol,name,price,peRatio,volume,change1M,change3M,change6M,change1Y
+AAPL,Apple Inc.,236.85,38.89,61679400,0.76,6.44,40.64,27.83
+T,AT&T Inc.,21.69,17.63,41570700,-4.87,8.9,34.33,36.05
+GOOG,Alphabet Inc.,193.17,25.65,20739800,13.34,22.09,20.34,34.82
+AXP,American Express Company,293.3,21.6,2685000,-3.79,15.9,23.63,60.32
+BABA,Alibaba Group Holding Limited,80.53,16.78,15363600,-5.46,-2.11,10.25,15.22
+ABT,Abbott Laboratories,112.31,34.14,5108700,-4.79,-1.59,6.13,0.13
+AMAT,"Applied Materials, Inc.",171.65,19.91,6323900,-0.89,-6.17,-11.92,15.47
+AMGN,Amgen Inc.,262.23,33.45,2721800,-6.35,-20.02,-1.81,-11.3
+AIG,"American International Group, I",70.5,14.02,7175200,-7.09,-6.25,-4.41,6.54
+ALL,Allstate Corporation (The),180.99,11.7,4641400,-12.54,-3.91,6.64,22.93
+ADBE,Adobe Inc.,405.92,32.89,5558600,-22.73,-28.92,-14.92,-31.32
+GOOGL,Alphabet Inc.,192.04,25.44,26653900,13.68,22.34,21.12,35.46
+ACN,Accenture plc,349.79,29.32,2830000,-3.69,2.73,12.51,2.92
+ABBV,AbbVie Inc.,175.17,61.03,5372200,-3.3,-10.68,6.19,10.12
+MT,Arcelor Mittal NY Registry Shar,22.06,,2066200,-7.85,0.8,-10.74,-17.27
+LLY,Eli Lilly and Company,799.9,86.2,3971400,1.34,-16.24,9.77,27.76
+APA,APA Corporation,23.68,3.36,5845600,5.15,-10.55,-24.79,-24.8
+ADP,"Automatic Data Processing, Inc.",286.85,30.68,2292500,-6.38,5.17,18.19,24.59
+AKAM,"Akamai Technologies, Inc.",88.93,26.31,2433700,-4.48,-11.03,-12.98,-23.39
+NLY,Annaly Capital Management Inc.,18.14,,7025400,-4.65,-3.47,8.0,6.35
+ADSK,"Autodesk, Inc.",284.96,56.54,2352200,-10.38,10.52,32.54,19.32
+ADM,Archer-Daniels-Midland Company,51.09,14.35,4497600,-4.9,-14.93,-14.82,-23.65
+WBA,"Walgreens Boots Alliance, Inc.",11.76,,103969500,34.71,35.09,-29.37,-48.45
+PANW,"Palo Alto Networks, Inc.",173.42,45.04,5725000,-12.5,-2.32,18.05,9.73
+AMD,"Advanced Micro Devices, Inc.",116.04,102.69,59251100,-15.74,-15.26,-23.53,-21.88
+AVGO,Broadcom Inc.,224.31,172.55,23849700,36.52,47.69,80.11,110.38
+EA,Electronic Arts Inc.,140.85,36.12,2296000,-14.55,-3.57,10.34,2.87
+AEM,Agnico Eagle Mines Limited,84.3,42.58,2239600,0.23,6.7,33.79,65.05
+APD,"Air Products and Chemicals, Inc",293.08,17.01,2423500,-11.92,7.8,27.28,12.71
+AMBA,"Ambarella, Inc.",75.67,,827000,10.61,36.24,77.8,30.96
+NVS,Novartis AG,99.08,17.29,1400100,-4.56,-16.39,0.74,-4.26
+LULU,lululemon athletica inc.,395.47,28.57,1321800,24.03,53.24,8.47,-18.31
+BRK.AX,BROOKSIDE FPO [BRK],0.47,3.3,64036,0.0,-5.0,-32.14,-20.83
+ARRY,"Array Technologies, Inc.",6.43,,5057300,-3.45,1.1,-47.42,-56.58
+A,"Agilent Technologies, Inc.",137.47,31.03,1369900,2.5,-0.73,0.52,5.59
+ORLY,"O'Reilly Automotive, Inc.",1197.6,29.67,308200,-3.75,5.35,9.6,27.87
+AZO,"AutoZone, Inc.",3251.32,21.74,132900,3.41,3.56,8.79,28.15
+AN,"AutoNation, Inc.",170.83,9.81,441800,-4.91,-0.62,7.09,19.96
+AZN,Astrazeneca PLC,67.01,32.22,5671200,0.98,-21.83,-5.31,-1.6
+BUD,Anheuser-Busch Inbev SA Sponsor,46.15,14.42,5552800,-14.43,-24.93,-22.28,-29.2
+BDX,"Becton, Dickinson and Company",233.67,39.81,2597900,4.7,-2.66,1.22,-0.33
+AB,AllianceBernstein Holding L.P.,35.43,10.18,336300,-1.01,7.47,12.68,21.4
+AFL,AFLAC Incorporated,100.99,15.01,2176300,-11.43,-6.99,21.64,24.84
+ADI,"Analog Devices, Inc.",212.37,64.94,4108500,-2.64,-2.49,9.39,14.65
+ACIW,"ACI Worldwide, Inc.",51.34,24.33,737400,-10.4,4.88,54.04,68.83
+AMP,"Ameriprise Financial, Inc.",515.48,19.73,437000,-10.2,16.98,26.13,38.24
+AMTD,AMTD IDEA Group,1.06,,19600,-14.52,-15.2,-40.11,-40.45
+AEO,"American Eagle Outfitters, Inc.",16.23,13.87,5985200,-8.59,-16.0,-26.86,-22.53
+NVO,Novo Nordisk A/S,86.26,29.54,6773800,-18.72,-36.69,-31.37,-19.75
+ALTR,Altair Engineering Inc.,110.25,275.62,792200,4.6,26.36,32.12,31.99
+PAA,"Plains All American Pipeline, L",18.88,16.71,5323100,6.85,9.22,9.21,31.16
+AAP,Advance Auto Parts Inc.,46.2,58.48,1787100,5.97,6.97,-38.64,-22.43
+FNMA,Fannie Mae,5.26,,24269500,58.91,357.39,257.82,426.0
+UBS,UBS Group AG Registered,32.31,25.24,2060000,3.59,8.9,21.19,10.82
+ARLP,"Alliance Resource Partners, L.P",27.19,7.72,411300,-3.48,19.73,39.92,39.5
+ATI,ATI Inc.,55.09,21.19,1166700,-9.14,-8.59,11.93,29.02
+ADT,ADT Inc.,6.87,687.0,3667900,-9.99,-2.28,10.17,8.71
+AVB,"AvalonBay Communities, Inc.",210.77,28.83,857400,-9.76,-5.77,12.79,18.59
+LH,Labcorp Holdings Inc.,232.0,44.02,626900,-2.82,1.3,12.67,4.3
+AVY,Avery Dennison Corporation,184.86,22.17,431400,-9.27,-15.24,-11.91,-4.21
+AON,Aon plc,349.51,29.95,971300,-10.44,1.11,13.89,17.76
+ADC,Agree Realty Corporation,68.36,37.77,761700,-10.56,-5.62,21.07,14.59
+AYI,"Acuity Brands, Inc.",305.26,22.48,445500,-5.6,24.1,20.74,33.08
+ASML,ASML Holding N.V. - New York Re,739.01,40.81,1514400,9.98,-12.38,-16.66,3.78
+AMT,American Tower Corporation (REI,173.46,41.8,3539200,-15.86,-23.48,2.53,-14.18
+ACM,AECOM,105.87,28.54,1198100,-9.09,8.96,13.42,19.65
+ARI,Apollo Commercial Real Estate F,8.57,,951200,-4.84,-13.12,-13.35,-18.28
+AR,Antero Resources Corporation,38.32,273.71,6883300,15.81,49.45,21.88,67.41
+BAH,Booz Allen Hamilton Holding Cor,132.47,20.86,2054100,-10.87,-15.05,-7.32,5.56
+ALB,Albemarle Corporation,86.53,,1691100,-18.65,3.74,-24.01,-33.9
+AIZ,"Assurant, Inc.",198.92,14.21,374000,-12.7,1.44,13.64,23.74
+SAIC,Science Applications Internatio,116.14,19.59,606400,-6.04,-8.81,-8.78,-7.94
+CAR,"Avis Budget Group, Inc.",84.56,7.54,639100,-21.24,12.28,-18.14,-49.95
+AU,AngloGold Ashanti PLC,25.98,19.53,3204800,2.69,-9.82,19.38,54.81
+APH,Amphenol Corporation,70.2,40.11,4530700,-3.97,13.94,21.49,47.16
+AMX,"America Movil, S.A.B. de C.V.",13.73,23.67,1138300,-7.35,-14.08,-22.75,-21.68
+JKHY,"Jack Henry & Associates, Inc.",172.0,31.44,679700,-0.32,-1.14,5.12,3.93
+AMKR,"Amkor Technology, Inc.",25.58,17.28,860600,-0.87,-11.99,-12.33,-13.69
+AEIS,"Advanced Energy Industries, Inc",118.36,98.63,167700,0.98,19.85,27.83,15.31
+VRSK,"Verisk Analytics, Inc.",268.63,41.52,1139600,-8.74,-1.81,21.39,15.5
+APO,"Apollo Global Management, Inc. ",155.39,16.43,4502700,-11.53,39.98,39.39,63.06
+RBA,"RB Global, Inc.",88.78,47.73,542000,-9.21,5.41,21.84,36.88
+MAA,Mid-America Apartment Communiti,148.19,33.3,813900,-9.18,-8.53,17.76,16.62
+ASX,"ASE Technology Holding Co., Ltd",10.49,20.98,11794500,7.48,15.15,4.12,23.11
+ARCO,Arcos Dorados Holdings Inc.,7.52,10.9,811900,-8.63,-12.03,-30.24,-36.49
+ANET,"Arista Networks, Inc.",114.34,54.97,5371800,12.01,39.99,79.52,83.51
+AIR,AAR Corp.,67.72,241.86,675400,-2.12,4.38,-0.31,18.21
+WAB,Westinghouse Air Brake Technolo,188.87,31.43,761300,-6.37,15.2,16.0,50.35
+RS,"Reliance, Inc.",267.04,14.62,536200,-17.05,-1.77,-13.89,-2.19
+PKG,Packaging Corporation of Americ,228.05,26.61,1101200,-7.55,11.94,33.54,40.91
+AMG,"Affiliated Managers Group, Inc.",176.87,11.49,260500,-6.54,3.63,9.15,19.27
+ALSN,"Allison Transmission Holdings, ",108.93,13.3,480200,-8.9,22.55,37.26,91.78
+ALGN,"Align Technology, Inc.",212.12,36.26,758800,-6.94,-6.35,-32.4,-23.36

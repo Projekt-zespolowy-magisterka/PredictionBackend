@@ -6,7 +6,7 @@ workers = 2
 timeout = 360
 
 # Logging configurations
-loglevel = "info"  # Options: debug, info, warning, error, critical
+loglevel = "error"  # Options: debug, info, warning, error, critical
 accesslog = "-"  # Log access requests to stdout
 errorlog = "-"  # Log errors to stdout
 logger_class = "gunicorn.glogging.Logger"  # Use Gunicorn's default logger

@@ -31,8 +31,6 @@ class DataService:
         change_6m = ((adj_close[-1] - adj_close[-180]) / adj_close[-180] * 100) if len(adj_close) >= 180 else None
         change_1y = ((adj_close[-1] - adj_close[-252]) / adj_close[-252] * 100) if len(adj_close) >= 252 else None
 
-        print(data.head())
-
         response = {
             "symbol": stock_symbol,
             "name": stock_info.get("shortName", "N/A"),
@@ -53,8 +51,6 @@ class DataService:
     def get_stock_chart_data_from_API(self, stock_symbol, interval, period):
         current_app.logger.info("Starting data download")
         data = yf.download(stock_symbol, period=period, interval=interval, actions=True, prepost=True, threads=True)
-
-        print(data.head())
 
         response = [
             {
@@ -106,7 +102,6 @@ class DataService:
             # TODO change timestamp from now to last from dataset
             three_years_ago = pd.Timestamp.now() - pd.DateOffset(years=3)
             old_data_filtered = old_data[old_data.index >= three_years_ago].tail(100)
-            print(f"old data: \n {old_data_filtered}")
             hurst_series = calculate_hurst_series(data['Close'], old_data_filtered['Close'])
             data.drop(columns=['Adj Close', 'Dividends', 'Stock Splits'], inplace=True)  #TODO sprawdzic dzialanie aktualne z dywidendami i spliatami
             data['Return'] = data['Close'].pct_change()
@@ -121,7 +116,6 @@ class DataService:
             data['MA_10'] = data['Close'].rolling(window=10).mean() #TODO dorobić tutaj poprawne wpisyanie w poczatkowych rekordach
             data['MA_50'] = data['Close'].rolling(window=50).mean()
 
-            print(f"data head: \n {data.head()}")
             return data
         except Exception as e:
             print(jsonify({'error': str(e)}), 500)
@@ -144,8 +138,6 @@ class DataService:
 
             features = processed_data[required_features]
             features = features.apply(pd.to_numeric, errors='coerce')
-            print("[get_objectives_from_data] Feature data types:")
-            print(features.dtypes)
 
             # TODO wrzucic to do innego miejsca to odwolanie
             target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
@@ -167,11 +159,8 @@ class DataService:
     # Ticker info just for analyze
     def get_stock_ticker_data(self, stock_symbol, interval, period):
         ticker = yf.Ticker(stock_symbol)
-        print("Ticker: \n", ticker)
 
-        print("\n\nTicker attributes\n")
         ticker_attributes = dir(ticker)
-        print(ticker_attributes)
 
         try:
             # 1. Basic Information

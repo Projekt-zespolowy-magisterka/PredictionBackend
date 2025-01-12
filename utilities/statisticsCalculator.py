@@ -22,6 +22,5 @@ def calculate_hurst_series(data_close, old_data_close):
         hurst_values.append(round(H, 3))
 
     hurst_series = pd.Series(hurst_values, index=data_close.index)
-    print(f'Hurst series: {hurst_series}')
     return hurst_series
 

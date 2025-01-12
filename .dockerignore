@@ -1,0 +1,45 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and temp files
+*.log
+*.tmp
+*.out
+*.bak
+
+# Environment files
+.env
+.env.*
+
+# Dependency directories
+venv/
+node_modules/
+
+.git/
+.gitignore
+
+# Temporary files
+.DS_Store
+*.swp
+*.swo
+*.~lock.*
+Thumbs.db
+
+data_files/AAPL
+data_files/AAPL_PRED
+data_files/chart
+
+*.csv
+*.xlsx
+*.json
+
+build/
+dist/
+*.egg-info/
+
+# IDE project files
+.idea/
+.vscode/
+*.iml

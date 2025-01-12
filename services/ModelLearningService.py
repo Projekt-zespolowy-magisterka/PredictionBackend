@@ -31,11 +31,9 @@ class ModelLearningService:
     # TODO czy zmiany reshapu wpływaja na zmiany wartości przy ponownym reshapowaniu i odwracaniu i czy 2 razy ta sama wartosc zreshapowana przez w innych zmiennych bedzie ta sama
     def learn_models(self, stock_symbol, interval, period):
         data_for_train = self.data_service.get_parquet_data(stock_symbol, interval, period)
-        print(f"DATA FOR TRAIN: {data_for_train}")
         X, y = self.data_service.get_objectives_from_data(data_for_train)
         number_of_features = X.shape[1]
         number_of_results = y.shape[1]
-        print(f"Numbers of results: {number_of_results}")
         X = X.values
         y = y.values
 
@@ -47,11 +45,6 @@ class ModelLearningService:
         X_scaled = scaler_X.fit_transform(X)
         y_scaled = scaler_y.fit_transform(y)
         assert X_scaled.shape[0] == y_scaled.shape[0], "Mismatch in X_scaled and y_scaled rows!"
-
-        print(f"X_scaled {X_scaled}")
-        print(f"y_scaled {y_scaled}")
-
-
         n_splits = 5
         tscv = TimeSeriesSplit(n_splits=n_splits)
 
@@ -100,16 +93,12 @@ class ModelLearningService:
 
                     y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, y_pred.shape[1]))
 
-                    print(f"Y_train {y_train_inverse}")
                     X_test_unscaled = scaler_X.inverse_transform(X_test[test_indices])
                     X_train_unscaled = scaler_X.inverse_transform(X_train)
 
                     excel_file, fold_folder, results_df = self.statistics_service.save_stats_to_excel(
                         X_test_unscaled, X_train_unscaled, current_model_name_key, current_value_index, model_index,
                         stock_symbol, y_pred, aligned_y_test_original, y_train_inverse, cv_scores)
-
-                    print(f"X_train shape: {X_train.shape}, y_train shape: {y_train.shape}")
-                    print(f"X_train_seq shape: {X_train_seq.shape}, y_train_seq shape: {y_train_seq.shape}")
 
                     print(f"Results saved to sequential model_results_{stock_symbol}_{current_model_name_key}_fold_{current_value_index}.xlsx")
                     self.statistics_service.save_chart_to_excel_file(current_model_name_key, current_value_index, excel_file, fold_folder, results_df, stock_symbol)
@@ -132,7 +121,6 @@ class ModelLearningService:
                     y_train_inverse = scaler_y.inverse_transform(y_train.reshape(-1, y_pred.shape[1]))
                     aligned_y_test_original = scaler_y.inverse_transform(y_test)
 
-                    print(f"Y_train {y_train_inverse}")
                     X_test_unscaled = scaler_X.inverse_transform(X_test)
                     X_train_unscaled = scaler_X.inverse_transform(X_train)
 
@@ -146,7 +134,7 @@ class ModelLearningService:
                 end_time = time.time()
                 elapsed_time = end_time - start_time
             print(f"[learn_models] Finished learning process of model: {current_model_name_key} in: {elapsed_time}\n")
-        self.statistics_service.display_results(cv_scores)
+        # self.statistics_service.display_results(cv_scores)
         self.save_models(learned_models)
 
     def save_model(self, model, model_key):

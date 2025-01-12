@@ -22,21 +22,9 @@ class StatisticsService:
         y_pred_scaled = model.predict(X_test)
         temp_model_min = np.min(y_pred_scaled, axis=0)
         temp_model_max = np.max(y_pred_scaled, axis=0)
-        print(f"Model min: {temp_model_min}")
-        print(f"Model max: {temp_model_max}")
 
         y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, y_pred_scaled.shape[1]))
         aligned_y_test_original = scaler_y.inverse_transform(y_test)
-
-        print(f"Y_pred {y_pred}")
-        print(f"aligned_y_test_original {aligned_y_test_original}")
-
-        print(f"y_pred_shape 0: {y_pred_scaled.shape[0]}")
-        print(f"y_test_shape 0: {y_test.shape[0]}")
-        print(f"X_test_shape 0: {X_test.shape[0]}")
-        print(f"y_pred_shape 1: {y_pred_scaled.shape[1]}")
-        print(f"y_test_shape 1: {y_test.shape[1]}")
-        print(f"X_test_shape 1: {X_test.shape[1]}")
 
         for col_index in range(aligned_y_test_original.shape[1]):
             for metric_index, metric_function in enumerate(self.metrics_array):
@@ -52,21 +40,9 @@ class StatisticsService:
         y_pred_scaled = model.predict(X_test)
         temp_model_min = np.min(y_pred_scaled, axis=0)
         temp_model_max = np.max(y_pred_scaled, axis=0)
-        print(f"Model min: {temp_model_min}")
-        print(f"Model max: {temp_model_max}")
 
         y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, y_pred_scaled.shape[1]))
         aligned_y_test_original = scaler_y.inverse_transform(y_test)
-
-        print(f"Y_pred {y_pred}")
-        print(f"aligned_y_test_original {aligned_y_test_original}")
-
-        print(f"[create_stats_of_sequential_model] y_pred_shape 0: {y_pred_scaled.shape[0]}")
-        print(f"[create_stats_of_sequential_model] y_test_shape 0: {y_test.shape[0]}")
-        print(f"[create_stats_of_sequential_model] X_test_shape 0: {X_test.shape[0]}")
-        print(f"[create_stats_of_sequential_model] y_pred_shape 1: {y_pred_scaled.shape[1]}")
-        print(f"[create_stats_of_sequential_model] y_test_shape 1: {y_test.shape[1]}")
-        print(f"[create_stats_of_sequential_model] X_test_shape 1: {X_test.shape[1]}")
 
         for col_index in range(aligned_y_test_original.shape[1]):
             for metric_index, metric_function in enumerate(self.metrics_array):
@@ -192,7 +168,7 @@ class StatisticsService:
             ws.add_image(img, f'A{current_row}')
             current_row += 80
         wb.save(excel_file)
-        print(f"Results and charts saved to {excel_file}")
+        print(f"Results and charts saved to excel_file")
 
     def create_dataframes_for_excel_test(self, X_test, X_train, y_pred, y_test, y_train):
         results_df = pd.DataFrame({

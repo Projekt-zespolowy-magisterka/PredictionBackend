@@ -5,8 +5,8 @@ import logging
 from datetime import datetime
 import os
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# logger = logging.getLogger(__name__)
 
 
 class MongoDBModelRepository:

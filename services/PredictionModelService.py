@@ -104,7 +104,8 @@ class PredictionModelService:
         for model_name, pred_list in predictions.items():
             for timestamp, values in zip(timestamps, pred_list):
                 results.append({'Model': model_name, 'Timestamp': timestamp,
-                                **dict(zip(['Open', 'High', 'Low', 'Close', 'Volume'], values))})
+                                # **dict(zip(['Open', 'High', 'Low', 'Close', 'Volume'], values))})
+                                **dict(zip(['Open', 'High', 'Low', 'Close'], values))})
 
         predictions_df = pd.DataFrame(results)
         predictions_df.set_index('Timestamp', inplace=True)
@@ -113,16 +114,16 @@ class PredictionModelService:
 
         return filtered_results
 
-
     def append_prediction_results(self, model_name, prediction, predictions):
         predictions[model_name]['Open'].append(prediction[0])
         predictions[model_name]['High'].append(prediction[1])
         predictions[model_name]['Low'].append(prediction[2])
         predictions[model_name]['Close'].append(prediction[3])
-        predictions[model_name]['Volume'].append(prediction[4])
+        # predictions[model_name]['Volume'].append(prediction[4])
 
     def create_new_row(self, next_date, prediction, temp_dataframe, original_data):
-        new_row_data = dict(zip(['Open', 'High', 'Low', 'Close', 'Volume'], prediction))
+        # new_row_data = dict(zip(['Open', 'High', 'Low', 'Close', 'Volume'], prediction))
+        new_row_data = dict(zip(['Open', 'High', 'Low', 'Close'], prediction))
         new_row_data.update({
             'Day': next_date.day,
             'Month': next_date.month,

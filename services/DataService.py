@@ -99,6 +99,12 @@ class DataService:
         print("[process_data] Processing of data started")
         print("[process_data] Data columns:", data.columns)
         try:
+
+            # if not isinstance(data.index, pd.DatetimeIndex):
+            #     data.index = pd.to_datetime(data.index)
+            # if not isinstance(old_data.index, pd.DatetimeIndex):
+            #     old_data.index = pd.to_datetime(old_data.index)
+
             # TODO change timestamp from now to last from dataset
             three_years_ago = pd.Timestamp.now() - pd.DateOffset(years=3)
             old_data_filtered = old_data[old_data.index >= three_years_ago].tail(100)
@@ -113,8 +119,20 @@ class DataService:
             data['DayOfWeek'] = data.index.dayofweek
             data['IsWeekend'] = (data.index.dayofweek >= 5).astype(int)
             data['Hurst'] = hurst_series
-            data['MA_10'] = data['Close'].rolling(window=10).mean() #TODO dorobić tutaj poprawne wpisyanie w poczatkowych rekordach
-            data['MA_50'] = data['Close'].rolling(window=50).mean()
+
+            last_10_old_close = old_data_filtered['Close'].tail(10).copy()
+            last_50_old_close = old_data_filtered['Close'].tail(50).copy()
+
+            ma_10_values = pd.concat([last_10_old_close, data['Close']]).reset_index(drop=True).rolling(
+                window=10).mean()
+            ma_50_values = pd.concat([last_50_old_close, data['Close']]).reset_index(drop=True).rolling(
+                window=50).mean()
+
+            print(f"MA10 values: {ma_10_values}")
+            print(f"MA50 values: {ma_50_values}")
+            # Map back the relevant portion of the moving averages to the current data
+            data['MA_10'] = ma_10_values.iloc[len(last_10_old_close):].values
+            data['MA_50'] = ma_50_values.iloc[len(last_50_old_close):].values
 
             return data
         except Exception as e:
@@ -129,7 +147,9 @@ class DataService:
         try:
             # TODO tutaj brakuje ME_10 i ME_50 do podpiedzia
             # TODO wrzucic te odwolanie do innego miejsca
-            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek', 'IsWeekend', 'Hurst']
+            required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour', 'DayOfWeek', 'IsWeekend', 'Hurst', 'MA_10', 'MA_50']
+            # required_features = ['Open', 'High', 'Low', 'Close', 'Volume', 'Return', 'Day', 'Month', 'Year', 'Hour',
+            #                      'DayOfWeek', 'IsWeekend', 'Hurst']
             for feature in required_features:
                 if feature not in processed_data.columns:
                     error_message = f"Feature '{feature}' not found in data"
@@ -140,7 +160,8 @@ class DataService:
             features = features.apply(pd.to_numeric, errors='coerce')
 
             # TODO wrzucic to do innego miejsca to odwolanie
-            target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
+            # target = processed_data[['Open', 'High', 'Low', 'Close', 'Volume']]
+            target = processed_data[['Open', 'High', 'Low', 'Close']]
             target = target.dropna()
 
             if len(features) != len(target):

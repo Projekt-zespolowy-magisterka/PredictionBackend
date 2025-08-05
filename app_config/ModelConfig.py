@@ -3,21 +3,23 @@ from sklearn.ensemble import RandomForestRegressor
 from tensorflow.keras.models import Sequential
 
 AVAILABLE_MODELS_NAMES = [
-    "DecisionTreeRegressor",
+    "DecisionTreeRegressor"
+    ,
     "RandomForestRegressor"
     ,
     "LSTM"
-    # ,
-    # "GRU",
-    # "Bi-Direct"
+    ,
+    "GRU",
+    "Bi-Direct"
 ]
 
 AVAILABLE_MODELS = [
-    DecisionTreeRegressor(),
+    DecisionTreeRegressor()
+    ,
     RandomForestRegressor()
     ,
     Sequential()
-    # ,
-    # Sequential(),
-    # Sequential()
+    ,
+    Sequential(),
+    Sequential()
 ]

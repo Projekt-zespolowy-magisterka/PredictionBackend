@@ -7,6 +7,8 @@ from openpyxl import load_workbook
 from openpyxl.drawing.image import Image
 from app_config.ModelConfig import AVAILABLE_MODELS_NAMES, AVAILABLE_MODELS
 from app_config.StatisticsConfig import metrics_array, metrics_names
+from scipy.stats import ttest_rel
+import re
 
 plt.switch_backend('Agg')
 
@@ -19,6 +21,7 @@ class StatisticsService:
         self.metrics_names = metrics_names
 
     def create_stats_of_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores, scaler_y):
+        print(f"Starting create_stats_of_model")
         y_pred_scaled = model.predict(X_test)
         temp_model_min = np.min(y_pred_scaled, axis=0)
         temp_model_max = np.max(y_pred_scaled, axis=0)
@@ -34,9 +37,11 @@ class StatisticsService:
                 else:
                     metric_value = metric_function(y_test[:, col_index], y_pred_scaled[:, col_index])
                     cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
+        print(f"Finished create_stats_of_model")
         return cv_scores, y_pred
 
     def create_stats_of_sequential_model(self, X_test, model, model_index, y_test, current_value_index, cv_scores, scaler_y):
+        print(f"Starting create_stats_of_sequential_model")
         y_pred_scaled = model.predict(X_test)
         temp_model_min = np.min(y_pred_scaled, axis=0)
         temp_model_max = np.max(y_pred_scaled, axis=0)
@@ -48,16 +53,19 @@ class StatisticsService:
             for metric_index, metric_function in enumerate(self.metrics_array):
                 metric_value = metric_function(aligned_y_test_original[:, col_index], y_pred[:, col_index])
                 cv_scores[model_index, metric_index, current_value_index, col_index] = metric_value
+        print(f"Finished create_stats_of_sequential_model")
         return cv_scores, y_pred
 
     def save_stats_to_excel(self, X_test, X_train, current_model_name_key, current_value_index, model_index, stock_symbol, y_pred, y_test, y_train, cv_scores):
+        print(f"Starting saving stats to excel")
         folder_path = os.path.join("data_files", stock_symbol, "stats")
         os.makedirs(folder_path, exist_ok=True)
 
         results_df, train_results_df = self.create_dataframes_for_excel(X_test, X_train, y_pred, y_test, y_train)
 
         # TODO zmianić tutaj zeby bylo odwolanie do innego miejsca tutaj
-        column_names = ["Open", "High", "Low", "Close", "Volume"]
+        # column_names = ["Open", "High", "Low", "Close", "Volume"]
+        column_names = ["Open", "High", "Low", "Close"]
         metrics_data = []
         for metric_index, metric_function in enumerate(self.metrics_array):
             for col_index in range(cv_scores.shape[3]):
@@ -84,6 +92,7 @@ class StatisticsService:
         with pd.ExcelWriter(excel_file) as writer:
             results_with_metrics_df.to_excel(writer, sheet_name='Test Data', index=False)
             train_results_df.to_excel(writer, sheet_name='Train Data', index=False)
+        print(f"Finished saving stats to excel")
         return excel_file, fold_folder, results_df
 
     def display_results(self, cv_scores):
@@ -98,51 +107,18 @@ class StatisticsService:
                     print(f"    Column {col_index}: mean = {mean_value:.10f}, std = {std_value:.10f}")
             print()
 
-    def create_dataframes_for_excel(self, X_test, X_train, y_pred, y_test, y_train):
-        results_df = pd.DataFrame({
-            'Day': X_test[:, 6],
-            'Month': X_test[:, 7],
-            'Year': X_test[:, 8],
-            'Hour': X_test[:, 9],
-            'y_test_Open': y_test[:, 0],
-            'y_test_High': y_test[:, 1],
-            'y_test_Low': y_test[:, 2],
-            'y_test_Close': y_test[:, 3],
-            'y_test_Volume': y_test[:, 4],
-            'y_pred_Open': y_pred[:, 0],
-            'y_pred_High': y_pred[:, 1],
-            'y_pred_Low': y_pred[:, 2],
-            'y_pred_Close': y_pred[:, 3],
-            'y_pred_Volume': y_pred[:, 4],
-        })
-        train_results_df = pd.DataFrame({
-            'Day_train': X_train[:, 6],
-            'Month_train': X_train[:, 7],
-            'Year_train': X_train[:, 8],
-            'Hour_train': X_train[:, 9],
-            'X_train_open': X_train[:, 0],
-            'X_train_high': X_train[:, 1],
-            'X_train_low': X_train[:, 2],
-            'X_train_close': X_train[:, 3],
-            'X_train_volume': X_train[:, 4],
-            'X_train_return': X_train[:, 5],
-            'y_train_open': y_train[:, 0],
-            'y_train_high': y_train[:, 1],
-            'y_train_low': y_train[:, 2],
-            'y_train_close': y_train[:, 3],
-            'y_train_volume': y_train[:, 4],
-        })
-        return results_df, train_results_df
 
     def save_chart_to_excel_file(self, current_model_name_key, current_value_index, excel_file, fold_folder, results_df,
                                  stock_symbol):
+        print(f"Starting save_chart_to_excel_file")
         image_folder = os.path.join(fold_folder, f"images")
         os.makedirs(image_folder, exist_ok=True)
         wb = load_workbook(excel_file)
         ws = wb.active
         current_row = len(results_df) + 5
         # TODO add here this enumaration diffrent source
-        for feature_index, feature_name in enumerate(['Open', 'High', 'Low', 'Close', 'Volume']):
+        # for feature_index, feature_name in enumerate(['Open', 'High', 'Low', 'Close', 'Volume']):
+        for feature_index, feature_name in enumerate(['Open', 'High', 'Low', 'Close']):
             plt.figure(figsize=(20, 12))
             plt.plot(results_df['Day'].astype(str) + '-' + results_df['Month'].astype(str) + '-' + results_df['Year'].astype(str),
                 results_df[f'y_test_{feature_name}'], label=f'Actual {feature_name}', color='blue', marker='o')
@@ -169,6 +145,118 @@ class StatisticsService:
             current_row += 80
         wb.save(excel_file)
         print(f"Results and charts saved to excel_file")
+
+    def sanitize_sheet_name(self, name):
+        # Replace invalid characters with an underscore and truncate to 31 characters
+        return re.sub(r'[\\/*?:[\]]', '_', name)[:31]
+
+    def pair_test(self, all_scores_table, stock_symbol):
+        print(all_scores_table)
+
+        folder_path = os.path.join("data_files", stock_symbol, "stats")
+        os.makedirs(folder_path, exist_ok=True)
+
+        n_experiment_objects = len(self.models_names)
+        n_metrics = len(self.metrics_names)
+        n_of_results = 4  # Number of results for each metric
+        alpha = 0.05  # Significance level
+
+        # Check for empty inputs
+        if not self.metrics_names or not self.models_names or all_scores_table.size == 0:
+            raise ValueError("Metrics, models, or scores table is empty. Cannot save results.")
+
+        print("Processing statistical tests...")
+        for metric_index in range(n_metrics):
+            metric_name = self.metrics_names[metric_index]
+            metric_file = os.path.join(folder_path, f"results_stats_{stock_symbol}_{metric_name}.xlsx")
+            print(f"Saving results to: {metric_file}")
+
+            with pd.ExcelWriter(metric_file) as writer:
+                for result_index in range(n_of_results):
+                    t_student_matrix = np.zeros((n_experiment_objects, n_experiment_objects))
+                    p_matrix = np.zeros((n_experiment_objects, n_experiment_objects))
+                    better_metrics_matrix = np.zeros((n_experiment_objects, n_experiment_objects), dtype=bool)
+                    statistics_matters_matrix = np.zeros((n_experiment_objects, n_experiment_objects), dtype=bool)
+                    for i in range(n_experiment_objects):
+                        for j in range(n_experiment_objects):
+                            first_scores_table = all_scores_table[i, metric_index, result_index, :]
+                            # print (f" First scores table: {first_scores_table}")
+                            second_scores_table = all_scores_table[j, metric_index, result_index, :]
+                            # print(f" Second scores table: {second_scores_table}")
+                            stat, p_value = ttest_rel(first_scores_table, second_scores_table)
+
+                            t_student_matrix[i, j] = stat
+                            p_matrix[i, j] = p_value
+
+                            better_metrics_matrix[i, j] = np.mean(first_scores_table) > np.mean(second_scores_table)
+                            better_metrics_matrix[j, i] = np.mean(first_scores_table) <= np.mean(second_scores_table)
+                            statistics_matters_matrix[i, j] = p_value < alpha
+
+                    advantage_matter_stat_matrix = better_metrics_matrix * statistics_matters_matrix
+                    t_student_df = pd.DataFrame(t_student_matrix, columns=self.models_names, index=self.models_names)
+                    p_matrix_df = pd.DataFrame(p_matrix, columns=self.models_names, index=self.models_names)
+                    better_metrics_matrix_df = pd.DataFrame(better_metrics_matrix, columns=self.models_names, index=self.models_names)
+                    statistics_matters_matrix_df = pd.DataFrame(statistics_matters_matrix, columns=self.models_names, index=self.models_names)
+                    advantage_matter_stat_matrix_df = pd.DataFrame(advantage_matter_stat_matrix, columns=self.models_names, index=self.models_names)
+
+
+                    print(f"t_student_matrix shape: {t_student_matrix.shape}")
+                    print(f"p_matrix shape: {p_matrix.shape}")
+                    print(f"t_student_matrix:\n{t_student_matrix}")
+                    print(f"p_matrix:\n{p_matrix}")
+
+                    # t_student_df.index.name = "Model"
+                    # t_student_df.columns.name = "Compared With"
+                    # p_matrix_df.index.name = "Model"
+                    # p_matrix_df.columns.name = "Compared With"
+
+                    print(f"Tmatrix{t_student_df}")
+                    print(f"Pmatrix{p_matrix_df}")
+                    # Write to Excel
+                    t_student_df.to_excel(writer, sheet_name=f"R_{result_index}_TValues")
+                    p_matrix_df.to_excel(writer, sheet_name=f"R_{result_index}_PValues")
+                    better_metrics_matrix_df.to_excel(writer, sheet_name=f"R_{result_index}_Better")
+                    statistics_matters_matrix_df.to_excel(writer, sheet_name=f"R_{result_index}_Matter")
+                    advantage_matter_stat_matrix_df.to_excel(writer, sheet_name=f"R_{result_index}_Adv")
+            print(f"Saved results for metric '{metric_name}' to {metric_file}")
+
+    def create_dataframes_for_excel(self, X_test, X_train, y_pred, y_test, y_train):
+        results_df = pd.DataFrame({
+            'Day': X_test[:, 6],
+            'Month': X_test[:, 7],
+            'Year': X_test[:, 8],
+            'Hour': X_test[:, 9],
+            'y_test_Open': y_test[:, 0],
+            'y_test_High': y_test[:, 1],
+            'y_test_Low': y_test[:, 2],
+            'y_test_Close': y_test[:, 3],
+            # 'y_test_Volume': y_test[:, 4],
+            'y_pred_Open': y_pred[:, 0],
+            'y_pred_High': y_pred[:, 1],
+            'y_pred_Low': y_pred[:, 2],
+            'y_pred_Close': y_pred[:, 3]
+            # ,
+            # 'y_pred_Volume': y_pred[:, 4]
+        })
+        train_results_df = pd.DataFrame({
+            'Day_train': X_train[:, 6],
+            'Month_train': X_train[:, 7],
+            'Year_train': X_train[:, 8],
+            'Hour_train': X_train[:, 9],
+            'X_train_open': X_train[:, 0],
+            'X_train_high': X_train[:, 1],
+            'X_train_low': X_train[:, 2],
+            'X_train_close': X_train[:, 3],
+            'X_train_volume': X_train[:, 4],
+            'X_train_return': X_train[:, 5],
+            'y_train_open': y_train[:, 0],
+            'y_train_high': y_train[:, 1],
+            'y_train_low': y_train[:, 2],
+            'y_train_close': y_train[:, 3]
+            # ,
+            # 'y_train_volume': y_train[:, 4]
+        })
+        return results_df, train_results_df
 
     def create_dataframes_for_excel_test(self, X_test, X_train, y_pred, y_test, y_train):
         results_df = pd.DataFrame({

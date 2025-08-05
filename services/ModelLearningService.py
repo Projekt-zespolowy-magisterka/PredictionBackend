@@ -82,7 +82,7 @@ class ModelLearningService:
                     assert len(X_train_seq) == len(y_train_seq), "Mismatch in X_train_seq and y_train_seq lengths!"
                     assert len(X_test_seq) == len(y_test_seq), "Mismatch in X_train_seq and y_train_seq lengths!"
 
-                    model.fit(X_train_seq, y_train_seq, validation_data=(X_test_seq, y_test_seq), epochs=50, batch_size=32) #TODO sprawdzic tez bez validation_data performance
+                    model.fit(X_train_seq, y_train_seq, validation_data=(X_test_seq, y_test_seq), epochs=50, batch_size=32, verbose=0) #TODO sprawdzic tez bez validation_data performance
                     learned_models[current_model_name_key] = seq_model
 
                     cv_scores, y_pred = self.statistics_service.create_stats_of_sequential_model(
@@ -135,6 +135,7 @@ class ModelLearningService:
                 elapsed_time = end_time - start_time
             print(f"[learn_models] Finished learning process of model: {current_model_name_key} in: {elapsed_time}\n")
         # self.statistics_service.display_results(cv_scores)
+        self.statistics_service.pair_test(cv_scores, stock_symbol)
         self.save_models(learned_models)
 
     def save_model(self, model, model_key):
@@ -149,7 +150,9 @@ class ModelLearningService:
     def create_lstm_model(self, model, number_of_features, number_of_results):
         # print(f"Creating lstm")
         # print(f"Creating first layer of lstm")
-        # model.add(LSTM(units=50, return_sequences=True, input_shape=(10, number_of_features), name="lstm_layer_1"))
+        # print(f"number_of_features: {number_of_features}")
+        # print(f"number_of_results: {number_of_results}")
+        # model.add(LSTM(units=50, return_sequences=True, input_shape=(1, number_of_features), name="lstm_layer_1"))
         # model.add(Dropout(0.2, name="dropout_1"))
         #
         # print(f"Creating second layer of lstm")
@@ -157,23 +160,24 @@ class ModelLearningService:
         # model.add(Dropout(0.2, name="dropout_2"))
         #
         # print(f"Creating third layer of lstm")
-        # model.add(LSTM(units=50, return_sequences=True, name="lstm_layer_3"))
-        # model.add(Dropout(0.2, name="dropout_3"))
+        # model.add(LSTM(units=50, return_sequences=False, name="lstm_layer_3"))
+        # # model.add(Dropout(0.2, name="dropout_3"))
         #
-        # print(f"Creating fourth layer of lstm")
-        # model.add(LSTM(units=50, name="lstm_layer_4"))
-        # model.add(Dropout(0.2, name="dropout_4"))
+        # # print(f"Creating fourth layer of lstm")
+        # # model.add(LSTM(units=50, return_sequences=False, name="lstm_layer_4"))
+        # # model.add(Dropout(0.2, name="dropout_4"))
         #
         # print(f"Creating output layer of lstm")
-        # model.add(Dense(units=4, name="output_layer"))
+        # model.add(Dense(units=number_of_results, name="output_layer"))
         #
         # # model.add(Dense(5))
         # print(f"input finished")
-        # model.compile(optimizer='adam', loss='mse')
+        # # model.compile(optimizer='adam', loss='mse')
+        # model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         # print(f"compile finished")
 
         model.add(LSTM(units=50, return_sequences=True, input_shape=(10, number_of_features)))
-        model.add(Dropout(0.1))
+        # model.add(Dropout(0.1))
         model.add(LSTM(units=50))
         model.add(Dense(units=number_of_results))
         model.compile(optimizer='adam', loss='mse', metrics=['mae'])
@@ -182,37 +186,54 @@ class ModelLearningService:
         return model
 
     def create_gru_model(self, model, number_of_features, number_of_results):
-        model.add(GRU(units=50, return_sequences=True, input_shape=(1, number_of_features), name="gru_layer_1"))
-        model.add(Dropout(0.2, name="dropout_1"))
+        # model.add(GRU(units=50, return_sequences=True, input_shape=(10, number_of_features), name="gru_layer_1"))
+        # model.add(Dropout(0.2, name="dropout_1"))
+        #
+        # model.add(GRU(units=50, return_sequences=True, name="gru_layer_2"))
+        # model.add(Dropout(0.2, name="dropout_2"))
+        #
+        # model.add(GRU(units=50, return_sequences=True, name="gru_layer_3"))
+        # model.add(Dropout(0.2, name="dropout_3"))
+        #
+        # model.add(GRU(units=50, return_sequences=False, name="gru_layer_4"))
+        # model.add(Dropout(0.2, name="dropout_4"))
+        #
+        # print(f"Creating output layer of gru")
+        # model.add(Dense(units=number_of_results, name="output_layer"))
 
-        model.add(GRU(units=70, return_sequences=True, name="gru_layer_2"))
-        model.add(Dropout(0.2, name="dropout_2"))
+        model.add(GRU(units=50, return_sequences=True, input_shape=(10, number_of_features)))
+        model.add(GRU(units=50))
+        model.add(Dense(units=number_of_results))
+        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
-        model.add(GRU(units=80, return_sequences=True, name="gru_layer_3"))
-        model.add(Dropout(0.3, name="dropout_3"))
-
-        model.add(GRU(units=50, name="gru_layer_4"))
-        model.add(Dropout(0.2, name="dropout_4"))
-
-        model.add(Dense(units=number_of_results, name="output_layer"))
-        model.compile(optimizer='adam', loss='mse')
+        # model.compile(optimizer='adam', loss='mse')
+        # model.compile(optimizer='adam', loss='mse', metrics=['mae'])
         return model
 
     def create_bi_lstm_model(self, model, number_of_features, number_of_results):
-        model.add(Bidirectional(LSTM(units=20, return_sequences=True), input_shape=(1, number_of_features), name="bi_lstm_layer_1"))
-        model.add(Dropout(0.3, name="dropout_1"))
-
-        model.add(Bidirectional(LSTM(units=40, return_sequences=False), name="bi_lstm_layer_2"))
-        model.add(Dropout(0.4, name="dropout_2"))
+        # model.add(Bidirectional(LSTM(units=50, return_sequences=True, input_shape=(1, number_of_features)), name="bi_lstm_layer_1"))
+        # model.add(Dropout(0.2, name="dropout_1"))
+        #
+        # model.add(Bidirectional(LSTM(units=50, return_sequences=True), name="bi_lstm_layer_2"))
+        # model.add(Dropout(0.2, name="dropout_2"))
         #
         # model.add(Bidirectional(LSTM(units=50, return_sequences=True), name="bi_lstm_layer_3"))
         # model.add(Dropout(0.2, name="dropout_3"))
         #
-        # model.add(Bidirectional(LSTM(units=50), name="bi_lstm_layer_4"))
+        # model.add(Bidirectional(LSTM(units=50, return_sequences=False), name="bi_lstm_layer_4"))
         # model.add(Dropout(0.2, name="dropout_4"))
+        #
+        # print(f"Creating output layer of bi_lstm")
+        # model.add(Dense(units=number_of_results, name="output_layer"))
+        # # model.compile(optimizer='adam', loss='mse')
+        # model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
-        model.add(Dense(units=number_of_results, name="output_layer"))
-        model.compile(optimizer='adam', loss='mse')
+
+        model.add(Bidirectional(LSTM(units=50, return_sequences=True, input_shape=(10, number_of_features)), name="bi_lstm_layer_1"))
+        model.add(Bidirectional(LSTM(units=50)))
+        model.add(Dense(units=number_of_results))
+        model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
         return model
 
     def create_sequences(self, data, target, n_timesteps):
